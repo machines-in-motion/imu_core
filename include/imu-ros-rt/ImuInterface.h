@@ -1,20 +1,20 @@
 #ifndef IMU_INTERFACE_CLEAN_H_
 #define IMU_INTERFACE_CLEAN_H_
+
+#include "rt_mutex.h"
  
 #include <stdint.h>
 #include <stdio.h>
 #include <termio.h>
 
-#include <native/timer.h>
-#include <native/task.h>
-#include <rtdm/rtdm.h>
-#include <rtdm/rtserial.h>
-#include <rtdk.h>
-
 #include <boost/thread/thread.hpp>
 #include <boost/shared_ptr.hpp>
 
-#include "SL_rt_mutex.h"
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
 
 /* SUPPORTED MESSAGE TYPES: */
 
@@ -105,8 +105,11 @@
 
     int fd_;
     ssize_t res_;
-    struct rtser_config rt_config_; // RT
+    #if __XENO__
+      struct rtser_config rt_config_; // RT
+     #else
     struct termios config_; // non-RT
+    #endif
     fd_set set_;
     struct timespec timeout_;
     uint8_t buffer_[100];
@@ -125,10 +128,9 @@
     int dec_rate_;
 
     boost::shared_ptr<boost::thread> imu_comm_thread_;
-    sl_rt_mutex mutex_;
+    rt_mutex mutex_;
     FILE* logfile_rt_;
     FILE* logfile_;
-    RTIME t1_, t2_, t3_;
     double delta1_, delta2_, delta3_;
     static const int max_realign_trials_ = 3;
 

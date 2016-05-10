@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<package>
+  <name>imu-ros-rt</name>
+  <version>1.0.0</version>
+  <description>arm</description>
+  <maintainer email="vberenz@tuebingen.mpg.de">Vincent Berenz</maintainer>
+  <license>TODO</license>
+  <author email="sschaal@usc.edu">Stefan Schaal</author>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <export>
+  </export>
+</package>

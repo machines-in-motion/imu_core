@@ -4,13 +4,11 @@
  * polled.  Works with both real-time and non real-time USB drivers.  Switching a -45 IMU to AHRS mode not yet fully debugged.		    
 */
 
-#include "../include/ImuInterface.h"
-
-
+#include "imu-ros-rt/ImuInterface.h"
 
   ImuInterface::ImuInterface(const char* portname, bool stream_data, bool realtime, bool is_45) {
 
-    sl_rt_mutex_init(&mutex_);
+    rt_mutex_init(&mutex_);
     imu_comm_thread_.reset();
     stop_imu_comm_ = true;
     stop_imu_comm_ = true;
@@ -34,7 +32,7 @@
       stopStream();
     }
     closePort();
-    sl_rt_mutex_destroy(&mutex_);
+    rt_mutex_destroy(&mutex_);
   }
 
   bool ImuInterface::initialize(uint8_t* message_type, int num_messages) {
@@ -105,18 +103,18 @@
       char str[100];
       snprintf(str, sizeof(str), "%s%s", "imu_timing_log_", port_);
       logfile_ = fopen(str, "w");
-      if(realtime_) {	
+      #ifdef __XENO__	
 	rt_print_auto_init(1); // for real-time safe printing
-      }
+      #endif
     }
 
-    if(realtime_) {
+    #ifdef __XENO__
       fd_ = rt_dev_open(port_, O_RDWR);
       if(fd_ < 0) {
 	rt_printf("ERROR >> Failed to open real-time USB port %s.  Are you sure you've loaded the correct drivers?\n", port_);
 	return false;
       }
-    } else {
+     #else
       char str[100];
       snprintf(str, sizeof(str), "%s%s", "/dev/", port_);
       fd_ = open(str, O_RDWR | O_SYNC); // blocking mode by default, unless O_NONBLOCK is passed
@@ -124,9 +122,9 @@
 	printf("ERROR >> Failed to open USB port /dev/%s.\n", port_);
 	return false;
       }
-    }
+    #endif
     
-    if(realtime_) {
+    #ifdef __XENO__
       // Switch to non-blocking mode and flush the buffer:
       rt_config_.config_mask = RTSER_SET_TIMEOUT_RX | RTSER_SET_BAUD;
       rt_config_.rx_timeout = RTSER_TIMEOUT_NONE; // set non-blocking
@@ -154,7 +152,7 @@
 	return false;
       }
 
-    } else {      
+    #else
       // Change port settings
       tcgetattr(fd_, &config_); 
 
@@ -176,14 +174,14 @@
 	printf("ERROR >> Failed to configure port.\n");
 	return false;
       }
-    }
+    #endif
 
     printString("IMU port has been opened in ");
-    if(realtime_) {
+    #ifdef __XENO__
       printString("real-time ");
-    } else {
+     #else
       printString("non real-time ");
-    }
+    #endif
     if(stream_data_) {
       printString("streaming mode.\n");
     } else {
@@ -192,11 +190,11 @@
     printString("Message types: ");
     for(int i = 0; i < num_messages_; ++i) {
 	message_type_[i] = message_type_[i];
-	if(realtime_) {
+	#ifdef __XENO__
 	  rt_printf("0x%02x ",message_type_[i]);
-	} else {
+	#else
 	  printf("0x%02x ",message_type_[i]);
-	}
+	#endif
     }
     printString("\n");
 
@@ -216,13 +214,13 @@
     buffer_[5] = 0x02; // field descriptor (communication mode)
     buffer_[6] = 0xE1; // checksum MSB
     buffer_[7] = 0xC7; // checksum LSB
-    if(realtime_) {
+    #ifdef __XENO__
       rt_dev_write(fd_,buffer_,cmd_len);
       rt_dev_read(fd_,buffer_,rep_len);
-    } else {
+    #else
       write(fd_,buffer_,cmd_len);
       read(fd_,buffer_,rep_len);
-    }
+    #endif
 
     // Compute Fletcher Checksum:
     uint8_t checksum_byte1 = 0;
@@ -235,28 +233,28 @@
     checksum = (checksum_byte1 << 8) | checksum_byte2;
     if(checksum!=((buffer_[rep_len-2]<< 8)|buffer_[rep_len-1])) {
       printString("Invalid Fletcher Checksum! Message: ");
-      if(realtime_) {
+      #ifdef __XENO__
 	for(int i=0; i<rep_len; ++i) {
 	  rt_printf("%02x ",buffer_[i]);
 	}
-      } else {
+       #else
 	for(int i=0; i<rep_len; ++i) {
 	  printf("%02x ",buffer_[i]);
 	}
-      }
+      #endif
       printString("\n");
       return false;
     }
 
-    if(realtime_) {
+    #ifdef __XENO__
       for(int i=0; i<rep_len; ++i) {
 	rt_printf("%02x ",buffer_[i]);
       }
-    } else {
+      #else
       for(int i=0; i<rep_len; ++i) {
 	printf("%02x ",buffer_[i]);
       }
-    }
+    #endif
     printString("\n");
 
     cmd_len = 10;
@@ -279,13 +277,13 @@
       buffer_[9] = 0xBC; // checksum LSB
     }    
 
-    if(realtime_) {
+    #ifdef __XENO__
       rt_dev_write(fd_,buffer_,cmd_len);
       rt_dev_read(fd_,buffer_,rep_len);
-    } else {
+      #else
       write(fd_,buffer_,cmd_len);
       read(fd_,buffer_,rep_len);
-    }
+    #endif
 
     // Compute Fletcher Checksum:
     checksum_byte1 = 0;
@@ -298,32 +296,37 @@
     checksum = (checksum_byte1 << 8) | checksum_byte2;
     if(checksum!=((buffer_[rep_len-2]<< 8)|buffer_[rep_len-1])) {
       printString("Invalid Fletcher Checksum! Message: ");
-      if(realtime_) {
+      #ifdef __XENO__
 	for(int i=0; i<rep_len; ++i) {
 	  rt_printf("%02x ",buffer_[i]);
 	}
-      } else {
+       #else
 	for(int i=0; i<rep_len; ++i) {
 	  printf("%02x ",buffer_[i]);
 	}
-      }
+      #endif
       printString("\n");
       return false;
     }
 
-    if(realtime_) {
+    #ifdef __XENO__
       for(int i=0; i<rep_len; ++i) {
 	rt_printf("%02x ",buffer_[i]);
       }
-    } else {
+      #else
       for(int i=0; i<rep_len; ++i) {
 	printf("%02x ",buffer_[i]);
       }
-    }
+    #endif
     printString("\n");
 
     printString("Successfully switched to AHRS direct mode.\n");
+    
+    #if __XENO__
     rt_task_sleep(1000000000); // 1s
+    #else
+    usleep(1000);
+    #endif
 
     return true;
   }
@@ -352,7 +355,7 @@
       return false;
     }
 
-    if(realtime_) {
+    #ifdef __XENO__
       //increase baudrate on port
       rt_config_.config_mask = RTSER_SET_TIMEOUT_RX | RTSER_SET_BAUD;
       rt_config_.rx_timeout = RTSER_TIMEOUT_INFINITE; // set blocking
@@ -362,7 +365,7 @@
 	rt_printf("ERROR >> Failed to configure port after changing IMU baudrate.\n");
 	return false;
       }
-    } else {
+      #else
       // Change port settings
       tcgetattr(fd_, &config_); 
       // set port control modes:
@@ -380,7 +383,7 @@
 	printf("ERROR >> Failed to configure port after changing IMU baudrate.\n");
 	return false;
       }
-    }
+    #endif
 
     if(!readFromDevice(CMD_COMM_SETTINGS, RPLY_COMM_SETTINGS_LEN)) {
       printString("ERROR >> Failed to set communication settings\n");
@@ -389,17 +392,17 @@
 
 
     printString("Set communication settings successfully with reply: ");
-    if(realtime_) {
+    #ifdef __XENO__
       for(int i = 0; i < RPLY_COMM_SETTINGS_LEN; ++i) {
 	rt_printf("%02x ", buffer_[i]);
       }
       rt_printf("\n");
-    } else {
+      #else
       for(int i = 0; i < RPLY_COMM_SETTINGS_LEN; ++i) {
 	printf("%02x ", buffer_[i]);
       }
       printf("\n");
-    }
+    #endif
 
     return true;
   }
@@ -448,17 +451,17 @@
     }
 
     printString("Set sampling settings successfully with reply: ");
-    if(realtime_) {
+    #ifdef __XENO__
       for(int i = 0; i < RPLY_SAMP_SETTINGS_LEN; ++i) {
 	rt_printf("%02x ", buffer_[i]);
       }
       rt_printf("\n");
-    } else {
+      #else
       for(int i = 0; i < RPLY_SAMP_SETTINGS_LEN; ++i) {
 	printf("%02x ", buffer_[i]);
       }
       printf("\n");
-    }
+    #endif
 
     return true;    
   }
@@ -487,11 +490,11 @@
   bool ImuInterface::captureGyroBias(void) {
 
     uint16_t duration = 3;
-    if(realtime_) {   
+    #ifdef __XENO__   
       rt_printf("Capturing gyro bias for %d seconds... ", duration);
-    } else {
+      #else
       printf("Capturing gyro bias for %d seconds... ", duration);
-    }
+    #endif
 
     buffer_[0] = CMD_GYRO_BIAS;
     buffer_[1] = GYRO_BIAS_CONF1;
@@ -514,7 +517,7 @@
 
   bool ImuInterface::setTimeout(double timeout) {
    
-    if(realtime_) { 
+    #ifdef __XENO__ 
       // Set read timeout
       rt_config_.config_mask = RTSER_SET_TIMEOUT_RX | RTSER_SET_BAUD;
       rt_config_.rx_timeout = (nanosecs_rel_t)(timeout * 1000000000); // rx_timeout in ns
@@ -524,12 +527,12 @@
 	rt_printf("ERROR >> Failed to set read timeout.\n");
 	return false;
       }
-    } else {
+      #else
       FD_ZERO(&set_);
       FD_SET(fd_, &set_);
       timeout_.tv_sec = 0;
       timeout_.tv_nsec = (long)(timeout * 1000000000);
-    }
+    #endif
     
     return true;
   }
@@ -552,11 +555,11 @@
       return false;
     }
 
-    if(realtime_) {
+    #ifdef __XENO__
       rt_printf("Continuous mode started, streaming command %02x\n", buffer_[1]);
-    } else {
+    #else
       printf("Continuous mode started, streaming command %02x\n", buffer_[1]);
-    } 
+    #endif 
 
     return true;
   }
@@ -581,11 +584,11 @@
       switchMode(false);
     }
 
-    if(realtime_) {
+    #ifdef __XENO__
       res_ = rt_dev_close(fd_);
-    } else {
+      #else
       res_ = close(fd_);
-    }
+    #endif
 
     if(res_!=0) {
       printString("ERROR >> Failed to close port.\n");
@@ -597,18 +600,22 @@
 
   bool ImuInterface::readingLoop(void) {
 
-    // Make this a Xenomai thread and switch to primary mode:
+      // Make this a Xenomai thread and switch to primary mode:
+       #ifdef __XENO__
       int res_ = rt_task_shadow(NULL, imu_comm_xeno_info_.keyword_, imu_comm_xeno_info_.priority_, T_JOINABLE | T_FPU);
       if(res_ != 0) {
 	rt_printf("ERROR >> Failed to shadow the calling non-RT task.\n");
 	return false;
       }
+      #endif
 
-      if(realtime_) { 
+      #if __XENO__
+      if(realtime_){
 	rt_task_set_mode(0,T_PRIMARY,NULL);
       } else {
 	rt_task_set_mode(T_PRIMARY,0,NULL);
       }
+      #endif
 
     while(!stop_imu_comm_) {      
       for(int i=0; i < num_messages_; ++i) {
@@ -627,11 +634,11 @@
 	  receiveQuat();
 	  break;
 	default:
-	  if(realtime_) {
+	  #ifdef __XENO__
 	    rt_printf("Unknown message of type 0x%02x requested!\n", message_type_[i]);
-	  } else {
+	    #else
 	    printf("Unknown message of type 0x%02x requested!\n", message_type_[i]);
-	  }
+	  #endif
 	  break;
 	}
       }
@@ -655,10 +662,16 @@
   }
 
   bool ImuInterface::receiveAccelAngrate(void) {
-
+    
+    #ifdef __XENO__
+    RTIME t1_, t2_, t3_;
+    #endif
+    
+    #ifdef __XENO__
     if(debug_timing_) {
       t1_ = rt_timer_read();
     }
+    #endif
 
     if(stream_data_) {
       if(!readFromDevice(CMD_AC_AN, RPLY_AC_AN_LEN)) {
@@ -677,9 +690,11 @@
       }	
     }
 
+    #ifdef __XENO__
     if(debug_timing_) {
       t2_ = rt_timer_read();
     }
+    #endif
  
     lockData();
 
@@ -698,17 +713,15 @@
 
     unlockData();
 
+    #ifdef __XENO__
     if(debug_timing_) {
       delta1_ = (t1_ - t3_) / 1000000.0;
       t3_ = rt_timer_read();
       delta2_ = (t2_ - t1_) / 1000000.0;
       delta3_ = (t3_ - t2_) / 1000000.0;
-      if(realtime_) {
-	rt_fprintf(logfile_, "%f %f %f %f\n", delta1_, delta2_, delta3_, timestamp_); 
-      } else {
-	fprintf(logfile_, "%f %f %f %f\n", delta1_, delta2_, delta3_, timestamp_);
-      }
+      rt_fprintf(logfile_, "%f %f %f %f\n", delta1_, delta2_, delta3_, timestamp_); 
     }
+    #endif
 
     return true;
   }
@@ -879,28 +892,28 @@
   // AUXILIARY FUNCTIONS:
 
   void ImuInterface::printString(const char* string) {
-    if(realtime_) {
+    #ifdef __XENO__
       rt_printf(string);
-    } else {
+      #else
       printf(string);
-    }
+    #endif
   }
 
   void ImuInterface::lockData(void) {
-    sl_rt_mutex_lock(&mutex_);
+    rt_mutex_lock(&mutex_);
   }
 
   void ImuInterface::unlockData(void) {
-    sl_rt_mutex_unlock(&mutex_);
+    rt_mutex_unlock(&mutex_);
   }
 
   bool ImuInterface::writeToDevice(int len) {
 
-    if(realtime_) {
+    #ifdef __XENO__
       res_ = rt_dev_write(fd_, buffer_, len);
-    } else {
+      #else
       res_ = write(fd_, buffer_, len);
-    }
+    #endif
 
     if(res_ < 0) {
       char* error_code = strerror(-res_);
@@ -917,9 +930,9 @@
 
   bool ImuInterface::readFromDevice(uint8_t command, int len) {
  
-    if(realtime_) {
+    #ifdef __XENO__
       res_ = rt_dev_read(fd_, buffer_, len);
-    } else {
+    #else
       if(!stream_data_ && timeout_set_) {
 	res_ = pselect(fd_ + 1, &set_, NULL, NULL, &timeout_, NULL);
 	if(res_ == -1) {
@@ -934,50 +947,54 @@
       } else {
 	res_ = read(fd_, buffer_, len); // when streaming, no read timeout
       }
-    }
+    #endif
 
     if(res_ < 0) {
       char* error_code = strerror(-res_);
       if(strcmp(error_code,"Connection timed out") == 0) {
+	#ifdef __XENO__
 	rt_printf("WARNING >> Timeout reached when reading command 0x%02x.\n",command);
+	#else
+	printf("WARNING >> Timeout reached when reading command 0x%02x.\n",command);
+	#endif
       } else {
-	if(realtime_) {
+	#ifdef __XENO__
 	  rt_printf("ERROR >> Reading from device failed with error: %s\n", error_code);
-	} else {
+	  #else
 	  printf("ERROR >> Reading from device failed with error: %s\n", error_code);
-	}
+	#endif
       }
       return false;
     } else if(res_ != len) {
-      if(realtime_) {
+      #ifdef __XENO__
 	rt_printf("ERROR >> Reading from device failed. Requested %d bytes and received %d bytes: ", len, res_);
 	for(int i = 0; i < res_; ++i) {
 	  rt_printf("%02x ", buffer_[i]);
 	}
 	rt_printf("\n");
-      } else {
+	#else
 	printf("ERROR >> Reading from device failed. Requested %d bytes and received %d bytes: ", len, res_);
 	for(int i = 0; i < res_; ++i) {
 	  printf("%02x ", buffer_[i]);
 	}
 	printf("\n");
-      }
+      #endif
       return false;
     }
 
     if(!isChecksumCorrect(buffer_, len)) {
       printString("ERROR >> Received message with bad checksum: ");
-      if(realtime_) {
+      #ifdef __XENO__
 	for(int i = 0; i < len; ++i) {
 	  rt_printf("%02x ", buffer_[i]);
 	}
 	rt_printf("\n");
-      } else {
+	#else
 	for(int i = 0; i < len; ++i) {
 	  printf("%02x ", buffer_[i]);
 	}
 	printf("\n");
-      }
+      #endif
       if(stream_data_) {
 	printString("WARNING >> Attempting to re-align with stream...\n");
 	return readMisalignedMsgFromDevice(command, len);
@@ -1023,11 +1040,11 @@
       // Print the corrupt message:
       printString("WARNING >> Read invalid message: ");
       for(int i = 0; i < len; ++i) {
-	if(realtime_) {
+	#ifdef __XENO__
 	  rt_printf("%02x ", buffer_[i]);
-	} else {
+	  #else
 	  printf("%02x ", buffer_[i]);
-	}
+	#endif
       }
       printString("\n");
 
@@ -1046,11 +1063,11 @@
 
       // We MIGHT have found the header!
       uint8_t fragment[len];
-      if(realtime_) {
+      #ifdef __XENO__
 	res_ = rt_dev_read(fd_, fragment, num_missed);
-      } else {
+	#else
 	res_ = read(fd_, fragment, num_missed);
-      }
+      #endif
 
       if(res_ != num_missed) {
 	printString("ERROR >> Could not read fragment.\n");
