@@ -5,7 +5,7 @@
   <description>arm</description>
   <maintainer email="vberenz@tuebingen.mpg.de">Vincent Berenz</maintainer>
   <license>TODO</license>
-  <author email="sschaal@usc.edu">Stefan Schaal</author>
+  <author email="nrotella@usc.edu">Nick Rotella</author>
 
   <buildtool_depend>catkin</buildtool_depend>
 

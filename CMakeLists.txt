@@ -23,9 +23,16 @@ set(SRCS_IMU
   ${src_directory}/ImuInterface.cpp
 )
 
+set(SRCS_IMU_TEST
+  ${src_directory}/test.cpp
+)
+
+
 add_library(imu-ros-rt ${SRCS_IMU})
 target_link_libraries(imu-ros-rt ${LAB_STD_LIBS} ${Boost_LIBRARIES})
 
+add_executable(imu-test ${SRCS_IMU_TEST})
+target_link_libraries(imu-test imu-ros-rt)
 
 catkin_package(
   INCLUDE_DIRS ${header_directory}
