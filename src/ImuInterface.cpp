@@ -3,7 +3,7 @@
  * Generic interface for the 3DM-GX3-25 IMU for Xenomai and non xenomai machines.
 */
 
-#include "imu-ros-rt/ImuInterface.h"
+#include "imu-core/ImuInterface.h"
 
   ImuInterface::ImuInterface(const char* portname, bool stream_data, bool realtime, bool is_45) {
 

@@ -1,6 +1,4 @@
-
-
-#include "imu-ros-rt/ImuInterface.h"
+#include "imu-core/ImuInterface.h"
 
 #define DEVICE "ttyACM0"
 #define IS_45 false
