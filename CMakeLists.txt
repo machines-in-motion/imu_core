@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(imu-ros-rt)
+project(imu-core)
 
 include("${CMAKE_SOURCE_DIR}/cmake/sl_cmake_global/LAB.cmake")
 
@@ -28,14 +28,14 @@ set(SRCS_IMU_TEST
 )
 
 
-add_library(imu-ros-rt ${SRCS_IMU})
-target_link_libraries(imu-ros-rt ${LAB_STD_LIBS} ${Boost_LIBRARIES})
+add_library(imu-core ${SRCS_IMU})
+target_link_libraries(imu-core ${LAB_STD_LIBS} ${Boost_LIBRARIES})
 
 add_executable(imu-test ${SRCS_IMU_TEST})
-target_link_libraries(imu-test imu-ros-rt)
+target_link_libraries(imu-test imu-core)
 
 catkin_package(
   INCLUDE_DIRS ${header_directory}
-  LIBRARIES imu-ros-rt
+  LIBRARIES imu-core
 )
 

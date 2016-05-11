@@ -1,7 +1,6 @@
 /*
- * Generic interface for the 3DM-GX3-25 IMU for Xenomai machines. To make this class compile on non-RT machines, will need to add 
- * #ifdef __XENO__ in many places.  Allows streaming of a single message type or specification of multiple message types to be 
- * polled.  Works with both real-time and non real-time USB drivers.  Switching a -45 IMU to AHRS mode not yet fully debugged.		    
+/"
+ * Generic interface for the 3DM-GX3-25 IMU for Xenomai and non xenomai machines.
 */
 
 #include "imu-ros-rt/ImuInterface.h"

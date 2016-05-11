@@ -1,11 +1,11 @@
 <?xml version="1.0"?>
 <package>
-  <name>imu-ros-rt</name>
+  <name>imu-core</name>
   <version>1.0.0</version>
-  <description>arm</description>
+  <description>ros realtime wrapper over imu-core</description>
   <maintainer email="vberenz@tuebingen.mpg.de">Vincent Berenz</maintainer>
   <license>TODO</license>
-  <author email="nrotella@usc.edu">Nick Rotella</author>
+  <author email="vberenz@tuebingen.mpg.de">Vincent Berenz</author>
 
   <buildtool_depend>catkin</buildtool_depend>
 
