@@ -1,6 +1,11 @@
 #include "imu-core/ImuInterface.h"
 
-#define DEVICE "ttyACM0"
+/* 
+testing imu connection directly via the drivers.
+see test_interface in same folder for higher level preferred test
+*/
+
+
 #define IS_45 false
 #define NB_ITERATIONS 20
 #define SLEEP 50000 // micro seconds
@@ -33,25 +38,34 @@
 #endif
 
 
-int main(){
+int main(int argc, char** argv){
+  
+  if (argc!=1){
 
-  uint8_t message_type[1];
-  int num_messages = 1;
-  message_type[0] = MESSAGE_TYPE;
+    printf("usage: test <device>\ne.g. test tty0\n");
 
-  ImuInterface myIMU(DEVICE,true,REALTIME,IS_45);
-  myIMU.initialize(message_type,num_messages);
+  } else {
 
-  double accel[3];
-  double angrate[3];
-  double timestamp;
+    string device = std::string(argv[0]);
 
-  for(int i=0;i<NB_ITERATIONS;i++){
-    myIMU.readAccelAngrate(accel,angrate,timestamp);
-    print_imu_data(timestamp,accel,angrate);
-    sleep();
+    uint8_t message_type[1];
+    int num_messages = 1;
+    message_type[0] = MESSAGE_TYPE;
+    
+    ImuInterface myIMU(device,true,REALTIME,IS_45);
+    myIMU.initialize(message_type,num_messages);
+    
+    double accel[3];
+    double angrate[3];
+    double timestamp;
+    
+    for(int i=0;i<NB_ITERATIONS;i++){
+      myIMU.readAccelAngrate(accel,angrate,timestamp);
+      print_imu_data(timestamp,accel,angrate);
+      sleep();
+    }
+    
   }
-
   
 
 }
