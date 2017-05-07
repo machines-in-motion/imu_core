@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <package>
-  <name>imu-core</name>
+  <name>imu_core</name>
   <version>1.0.0</version>
   <description>ros realtime wrapper over imu-core</description>
   <maintainer email="vberenz@tuebingen.mpg.de">Vincent Berenz</maintainer>

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(imu-core)
+project(imu_core)
 
 include("${CMAKE_SOURCE_DIR}/cmake/sl_cmake_global/LAB.cmake")
 
