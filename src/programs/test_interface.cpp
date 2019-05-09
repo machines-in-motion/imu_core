@@ -1,4 +1,4 @@
-#include "imu-core/ImuInterface.h"
+#include "imu-core/imu_interface.hpp"
 
 /*
   testing imu connection via the getter, which is the easiest preferred solution.
@@ -12,14 +12,14 @@
 
 int main(int argc, char** argv){
   
-  if (argc!=1){
+  if (argc <= 1){
 
-    printf("usage: test_interface <devices>\ne.g. test_interface tty0 tty1\n");
+    rt_printf("usage: test_interface <devices>\ne.g. test_interface tty0 tty1\n");
 
   } else {
 
     std::vector<std::string> devices;
-    for(int i=0;i<argc;i++){
+    for(int i=1;i<argc;i++){
       devices.push_back(std::string(argv[i]));
     }
 
@@ -29,7 +29,7 @@ int main(int argc, char** argv){
     for(int i=0;i<NB_ITERATIONS;i++){
       imu_data_getter.get(data);
       for (int j=0;j<devices.size();j++){
-	data[devices[j]].print();
+	      data[devices[j]].print();
       }
       usleep(SLEEP);
     }

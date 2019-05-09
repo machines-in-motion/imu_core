@@ -1,48 +1,66 @@
+###################
+# standard header # 
+###################
 cmake_minimum_required(VERSION 2.8.3)
+
+# required to use std::shared_ptr in code
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wl,--no-as-needed")
+
+# ensuring path to libraries are set during install
+set(CMAKE_SKIP_BUILD_RPATH  FALSE)
+set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+
 project(imu_core)
 
-include("${CMAKE_SOURCE_DIR}/cmake/sl_cmake_global/LAB.cmake")
-
-find_package(xenomai_ros QUIET)
-
-if(Xenomai_FOUND)
-  message("COMPILING FOR XENOMAI !")
-  add_xenomai_flags()
-  include_directories( ${Xenomai_INCLUDE_DIR} )
-endif()
-
+#####################
+# find dependencies #
+#####################
+find_package(catkin REQUIRED COMPONENTS
+  mpi_cmake_modules
+  real_time_tools
+)
 find_package(X11 REQUIRED)
-find_package(Boost REQUIRED COMPONENTS thread)
+search_for_boost()
 
-set(header_directory  ${CMAKE_CURRENT_SOURCE_DIR}/include)
-set(src_directory     ${CMAKE_CURRENT_SOURCE_DIR}/src)
+#############################
+# get the include directory #
+#############################
+include_directories(BEFORE ${PROJECT_SOURCE_DIR}/include ${catkin_INCLUDE_DIRS})
 
-include_directories(BEFORE ${header_directory})
-
-set(SRCS_IMU
-  ${src_directory}/ImuInterface.cpp
-)
-
-set(SRCS_IMU_TEST
-  ${src_directory}/test.cpp
-)
-
-set(SRCS_IMU_TEST_INTERFACE
-  ${src_directory}/test.cpp
-)
-
-
-add_library(imu-core ${SRCS_IMU})
-target_link_libraries(imu-core ${LAB_STD_LIBS} ${Boost_LIBRARIES})
-
-add_executable(imu-test ${SRCS_IMU_TEST})
-target_link_libraries(imu-test imu-core)
-
-add_executable(imu-test-interface ${SRCS_IMU_TEST_INTERFACE})
-target_link_libraries(imu-test-interface imu-core)
-
+#############################
+# create the catkin package #
+#############################
 catkin_package(
-  INCLUDE_DIRS ${header_directory}
+  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include
   LIBRARIES imu-core
+  DEPENDS real_time_tools
 )
 
+###########################
+# create the main library #
+###########################
+set(src_directory ${CMAKE_CURRENT_SOURCE_DIR}/src)
+set(SRCS_IMU
+  ${src_directory}/imu_3DM_GX3_25.cpp
+  # ${src_directory}/imu_getter.cpp
+)
+add_library(imu-core ${SRCS_IMU})
+target_link_libraries(imu-core ${catkin_LIBRARIES} ${Boost_LIBRARIES})
+
+##################################
+# debugging or analytic programs #
+##################################
+set(programs_directory ${src_directory}/programs)
+
+add_executable(imu-test ${programs_directory}/test.cpp)
+target_link_libraries(imu-test imu-core real_time_tools)
+
+# add_executable(imu-test-interface ${programs_directory}/imu-test-interface.cpp)
+# target_link_libraries(imu-test-interface imu-core real_time_tools)
+
+##########################
+# building documentation #
+##########################
+build_doxygen_documentation()

@@ -1,3 +1,6 @@
+#ifndef IMU_GETTER_HPP
+#define IMU_GETTER_HPP
+
 #include <map>
 #include <string>
 #include <memory>
