@@ -42,7 +42,7 @@ int main(int argc, char** argv){
   bool real_time = false;
   bool stream_data = true;
 
-  Imu3DM_GX3_25 myIMU(device.c_str(), stream_data, real_time, IS_45);
+  imu_core::Imu3DM_GX3_25 myIMU(device.c_str(), stream_data, real_time, IS_45);
   myIMU.initialize(message_type,num_messages);
   
   double accel[3];

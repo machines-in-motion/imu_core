@@ -24,6 +24,14 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(X11 REQUIRED)
 search_for_boost()
 
+####################################
+# Define the OS to be used locally #
+####################################
+
+# This macro sets the C++ preprocessor flags "XENOMAI", "RT_PREEMPT", or
+# "NON_REAL_TIME" according to the current operating system.
+define_os()
+
 #############################
 # get the include directory #
 #############################

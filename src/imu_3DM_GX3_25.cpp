@@ -6,12 +6,11 @@
 #include "imu-core/imu_3DM_GX3_25.hpp"
 
 using namespace real_time_tools;
+namespace imu_core{
 
 Imu3DM_GX3_25::Imu3DM_GX3_25(const char *portname, bool stream_data, bool real_time, bool is_45)
 {
-
   rt_mutex_init(&mutex_);
-  imu_comm_thread_.reset();
   stop_imu_comm_ = true;
   stop_imu_comm_ = true;
   timeout_set_ = false;
@@ -22,7 +21,7 @@ Imu3DM_GX3_25::Imu3DM_GX3_25(const char *portname, bool stream_data, bool real_t
   is_45_ = is_45;
 
   // Set default streaming thread parameters:
-  imu_comm_xeno_info_.keyword_ = "imu_comm";
+  imu_comm_xeno_info_.keyword_ = static_cast<char*>("imu_comm");
   imu_comm_xeno_info_.priority_ = 25;
   imu_comm_xeno_info_.cpu_id_ = 4;
 }
@@ -46,7 +45,8 @@ bool Imu3DM_GX3_25::initialize(uint8_t *message_type, int num_messages)
 
   if (num_messages_ > 1 && stream_data_)
   {
-    printString("WARNING: Cannot stream more than one message type.  Switching to polling mode.\n");
+    printString("WARNING: Cannot stream more than one message type.  "
+                "Switching to polling mode.\n");
     stream_data_ = false;
   }
 
@@ -59,14 +59,16 @@ bool Imu3DM_GX3_25::initialize(uint8_t *message_type, int num_messages)
     {
       calc_orient_ = true;
       dec_rate_ = 2; // 500 hz
-      printString("WARNING: Orientation matrix calculation enabled, max data rate of 500hz set.\n");
+      printString("WARNING: Orientation matrix calculation enabled, "
+                  "max data rate of 500hz set.\n");
     }
     if (message_type_[i] == CMD_QUAT)
     {
       calc_orient_ = true;
       calc_quat_ = true;
       dec_rate_ = 2; // 500 hz
-      printString("WARNING: Quaternion calculation enabled, max data rate of 500hz set.\n");
+      printString("WARNING: Quaternion calculation enabled, "
+                  "max data rate of 500hz set.\n");
     }
   }
 
@@ -91,14 +93,20 @@ bool Imu3DM_GX3_25::initialize(uint8_t *message_type, int num_messages)
     return false;
   }
 
-  // // start IMU reading thread
+  // start IMU reading thread
   stop_imu_comm_ = false;
-  imu_comm_thread_.reset(new boost::thread(boost::bind(&Imu3DM_GX3_25::readingLoop, this)));
+  imu_comm_thread_.reset(new RealTimeThread());
+  create_realtime_thread(
+    *imu_comm_thread_, &Imu3DM_GX3_25::readingLoopHelper, this);
 
   return true;
 }
 
-bool Imu3DM_GX3_25::setStreamThreadParams(char *keyword, int priority, int stacksize, int cpu_id, int delay_ns)
+bool Imu3DM_GX3_25::setStreamThreadParams(char *keyword,
+                                          int priority,
+                                          int stacksize,
+                                          int cpu_id,
+                                          int delay_ns)
 {
 
   imu_comm_xeno_info_.keyword_ = keyword;
@@ -725,7 +733,7 @@ bool Imu3DM_GX3_25::readingLoop(void)
     }
   }
 
-  return true;
+  // return THREAD_FUNCTION_RETURN_VALUE;
 }
 
 bool Imu3DM_GX3_25::stopReadingLoop(void)
@@ -738,7 +746,7 @@ bool Imu3DM_GX3_25::stopReadingLoop(void)
     stop_imu_comm_ = true;
     unlockData();
 
-    imu_comm_thread_->join();
+    join_thread(*imu_comm_thread_);
   }
 
   return true;
@@ -1277,3 +1285,5 @@ int read_accel_angrate(double *accel, double *angrate, double timestamp)
     return 0;
   }
 }
+
+} // namespace
