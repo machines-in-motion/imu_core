@@ -16,7 +16,7 @@
 #define IS_45 true
 #define NB_ITERATIONS 20
 #define SLEEP 50 // milli seconds
-#define MESSAGE_TYPE 0xc8
+#define MESSAGE_TYPE CMD_AC_AN
 
 static void print_imu_data(double &timestamp,double *accel, double* angrate){
   rt_printf("%f\t|\t%f\t%f\t%f\t|\t%f\t%f\t%f\n",timestamp,accel[0],accel[1],accel[2],angrate[0],angrate[1],angrate[2]);
