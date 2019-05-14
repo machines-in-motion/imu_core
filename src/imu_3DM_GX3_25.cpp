@@ -8,13 +8,15 @@ using namespace real_time_tools;
 namespace imu_core{
 
 Imu3DM_GX3_25::Imu3DM_GX3_25(const std::string& portname,
-                bool stream_data, bool real_time, bool is_45)
+                             bool stream_data, bool real_time, bool is_45)
 {
   rt_mutex_init(&mutex_);
   stop_imu_comm_ = true;
+  timeout_set_ = false;
   debug_timing_ = false; // set to true to record timestamps
   port_ = portname;
   stream_data_ = stream_data;
+  realtime_ = real_time;
   is_45_ = is_45;
 
   // Set default streaming thread parameters:

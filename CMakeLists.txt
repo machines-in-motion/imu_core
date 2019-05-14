@@ -23,6 +23,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 find_package(X11 REQUIRED)
 search_for_boost()
+search_for_eigen()
 
 ####################################
 # Define the OS to be used locally #
@@ -60,13 +61,18 @@ target_link_libraries(imu-core ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 ##################################
 # debugging or analytic programs #
 ##################################
-set(programs_directory ${src_directory}/programs)
 
-add_executable(imu-test ${programs_directory}/test.cpp)
-target_link_libraries(imu-test imu-core real_time_tools)
 
-# add_executable(imu-test-interface ${programs_directory}/imu-test-interface.cpp)
-# target_link_libraries(imu-test-interface imu-core real_time_tools)
+
+#########
+# Demos #
+#########
+macro(add_imu_core_demo source_file)
+  add_executable(${source_file} demos/${source_file}.cpp)
+  target_link_libraries(${source_file} imu-core)
+endmacro(add_imu_core_demo source_file)
+
+add_imu_core_demo(demo_imu_3DM_GX3_25)
 
 ##########################
 # building documentation #

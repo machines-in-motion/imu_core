@@ -44,6 +44,8 @@ namespace imu_core
 #define CMD_QUAT_LEN 1
 #define RPLY_QUAT_LEN 23
 
+/* INTERACTION MESSAGES: */
+
 // Set continuous mode:
 #define CMD_CONT_MODE 0xc4
 #define CMD_CONT_MODE_LEN 4
