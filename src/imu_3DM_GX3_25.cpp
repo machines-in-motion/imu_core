@@ -6,464 +6,195 @@
 
 using namespace real_time_tools;
 namespace imu_core{
+namespace imu_3DM_GX3_25{
 
-Imu3DM_GX3_25::Imu3DM_GX3_25(const std::string& portname,
-                             bool stream_data, bool real_time, bool is_45)
+Imu3DM_GX3_25::Imu3DM_GX3_25(const std::string& port_name):
+  ImuInterface(port_name)
 {
-  rt_mutex_init(&mutex_);
-  stop_imu_comm_ = true;
-  timeout_set_ = false;
-  debug_timing_ = false; // set to true to record timestamps
-  port_ = portname;
-  stream_data_ = stream_data;
-  realtime_ = real_time;
-  is_45_ = is_45;
-
-  // Set default streaming thread parameters:
-  thread_.parameters_.keyword_ = port_;
-  thread_.parameters_.priority_ = 25;
-  // thread_.parameters_.cpu_id_.push_back(4);
+  /** Nothing to be done for these attributes
+  thread_;
+  mutex_;
+  usb_stream_;
+  */
+  // We try 3 times maximum before giving up on realigning.
+  max_realign_trials_ = 3;
+  timer_.set_memory_size(100000); // 100 seconds at 1ms/iteration
+  time_stamp_ = 0.0;
 }
 
 Imu3DM_GX3_25::~Imu3DM_GX3_25(void)
 {
-  stopReadingLoop();
-  if (stream_data_)
-  {
-    stopStream();
-  }
-  closePort();
-  rt_mutex_destroy(&mutex_);
+  // stopReadingLoop();
+  // if (stream_data_)
+  // {
+  //   stopStream();
+  // }
+  // closePort();
+  // rt_mutex_destroy(&mutex_);
 }
 
-bool Imu3DM_GX3_25::initialize(uint8_t *message_type, int num_messages)
+bool Imu3DM_GX3_25::initialize()
 {
+  // open OS communication
+  bool initialized = usb_stream_.open_device(port_name_);
+  // setup OS communication
+  port_config_.rts_cts_enabled_ = false;
+  port_config_.parity_ = false;
+  port_config_.stop_bits_ = real_time_tools::PortConfig::StopBits::one;
+  port_config_.prepare_size_definition_ = false;
+  port_config_.data_bits_ = real_time_tools::PortConfig::cs8;
+  port_config_.baude_rate_ = real_time_tools::PortConfig::BR_115200;
+  usb_stream_.set_port_config(port_config_);
+  usb_stream_.set_poll_mode_timeout(0.005);
 
-  num_messages_ = num_messages;
-  message_type_ = message_type;
-
-  if (num_messages_ > 1 && stream_data_)
-  {
-    printString("WARNING: Cannot stream more than one message type.  "
-                "Switching to polling mode.\n");
-    stream_data_ = false;
-  }
-
-  calc_orient_ = false;
-  calc_quat_ = false;
-  dec_rate_ = 1; // 1000 hz
-  for (int i = 0; i < num_messages_; ++i)
-  {
-    if (message_type_[i] == CMD_AC_AN_OR)
-    {
-      calc_orient_ = true;
-      dec_rate_ = 2; // 500 hz
-      printString("WARNING: Orientation matrix calculation enabled, "
-                  "max data rate of 500hz set.\n");
-    }
-    if (message_type_[i] == CMD_QUAT)
-    {
-      calc_orient_ = true;
-      calc_quat_ = true;
-      dec_rate_ = 2; // 500 hz
-      printString("WARNING: Quaternion calculation enabled, "
-                  "max data rate of 500hz set.\n");
-    }
-  }
-
-  bool initialized = openPort();
-  initialized = initialized && setCommunicationSettings();
+  // setup the IMU configuration
+  initialized = initialized && set_communication_settings();
   initialized = initialized && setSamplingSettings();
   initialized = initialized && initTimestamp();
   initialized = initialized && captureGyroBias();
-  if (stream_data_)
-  {
-    initialized = initialized && startStream();
-  }
-  else
-  {
-    setTimeout(0.005); // timeout in seconds
-    timeout_set_ = true;
-  }
-
-  if (!initialized)
-  {
-    printString("ERROR >> IMU initialization failed.\n");
-    return false;
-  }
-
-  // start IMU reading thread
-  stop_imu_comm_ = false;
-  thread_.create_realtime_thread(Imu3DM_GX3_25::readingLoopHelper, this);
-
   return true;
 }
 
-bool Imu3DM_GX3_25::setStreamThreadParams(std::string& keyword,
-                                          int priority,
-                                          int stack_size,
-                                          std::vector<int>& cpu_id,
-                                          int delay_ns)
+bool Imu3DM_GX3_25::receive_message(ImuMsg& msg, bool stream_mode)
 {
-
-  thread_.parameters_.keyword_ = keyword;
-  thread_.parameters_.priority_ = priority;
-  thread_.parameters_.stack_size_ = stack_size;
-  thread_.parameters_.cpu_id_ = cpu_id;
-  thread_.parameters_.delay_ns_ = delay_ns;
-
-  return true;
-}
-
-bool Imu3DM_GX3_25::openPort(void)
-{
-
-  if (debug_timing_)
+  if(!usb_stream_.read_device(msg.reply_, stream_mode))
   {
-    char str[100];
-    snprintf(str, sizeof(str), "%s%s", "imu_timing_log_", port_);
-    logfile_ = fopen(str, "w");
-#ifdef __XENO__
-    rt_print_auto_init(1); // for real-time safe printing
-#endif
+    rt_printf("Imu3DM_GX3_25::receive_message(): [Error] "
+              "message badly received\n");
   }
 
-#ifdef __XENO__
-  fd_ = rt_dev_open(port_, O_RDWR);
-  if (fd_ < 0)
+  if (!is_checksum_correct(msg))
   {
-    rt_printf("ERROR >> Failed to open real-time USB port %s.  Are you sure you've loaded the correct drivers?\n", port_);
-    return false;
-  }
-#else
-  char str[100];
-  snprintf(str, sizeof(str), "%s%s", "/dev/", port_);
-  fd_ = open(str, O_RDWR | O_SYNC); // blocking mode by default, unless O_NONBLOCK is passed
-  if (fd_ < 0)
-  {
-    printf("ERROR >> Failed to open USB port /dev/%s.\n", port_);
-    return false;
-  }
-#endif
-
-#ifdef __XENO__
-  // Switch to non-blocking mode and flush the buffer:
-  rt_config_.config_mask = RTSER_SET_TIMEOUT_RX | RTSER_SET_BAUD;
-  rt_config_.rx_timeout = RTSER_TIMEOUT_NONE; // set non-blocking
-  rt_config_.baud_rate = 115200;
-  res_ = rt_dev_ioctl(fd_, RTSER_RTIOC_SET_CONFIG, &rt_config_);
-  if (res_ != 0)
-  {
-    rt_printf("ERROR >> Failed to configure port.\n");
-    return false;
-  }
-
-  int i = 100;
-  while (--i > 0)
-  {
-    rt_task_sleep(1000000);
-    while (rt_dev_read(fd_, buffer_, 100) > 0) // flush buffer and make sure it's cleared for 100*(1000000ns) or 100ms
-      i = 100;
-  }
-
-  // Switch back to blocking mode:
-  rt_config_.config_mask = RTSER_SET_TIMEOUT_RX | RTSER_SET_BAUD;
-  rt_config_.rx_timeout = RTSER_TIMEOUT_INFINITE; // set blocking
-  rt_config_.baud_rate = 115200;
-  res_ = rt_dev_ioctl(fd_, RTSER_RTIOC_SET_CONFIG, &rt_config_);
-  if (res_ != 0)
-  {
-    rt_printf("ERROR >> Failed to configure port.\n");
-    return false;
-  }
-
-#else
-  // Change port settings
-  tcgetattr(fd_, &config_);
-
-  // set port control modes:
-  config_.c_cflag = CLOCAL | CREAD;
-
-  // set to 8N1 (eight data bits, no parity bit, one stop bit):
-  config_.c_cflag &= ~PARENB;
-  config_.c_cflag &= ~CSTOPB;
-  config_.c_cflag &= ~CSIZE;
-  config_.c_cflag |= CS8;
-
-  // set to baudrate 115200
-  cfsetispeed(&config_, B115200);
-  cfsetospeed(&config_, B115200);
-
-  // set port properties after flushing buffer
-  if (tcsetattr(fd_, TCSAFLUSH, &config_) < 0)
-  {
-    printf("ERROR >> Failed to configure port.\n");
-    return false;
-  }
-#endif
-
-  printString("IMU port has been opened in ");
-#ifdef __XENO__
-  printString("real-time ");
-#else
-  printString("non real-time ");
-#endif
-  if (stream_data_)
-  {
-    printString("streaming mode.\n");
-  }
-  else
-  {
-    printString("polling mode.\n");
-  }
-  printString("Message types: ");
-  for (int i = 0; i < num_messages_; ++i)
-  {
-    message_type_[i] = message_type_[i];
-#ifdef __XENO__
-    rt_printf("0x%02x ", message_type_[i]);
-#else
-    printf("0x%02x ", message_type_[i]);
-#endif
-  }
-  printString("\n");
-
-  return true;
-}
-
-bool Imu3DM_GX3_25::switchMode(bool to_25)
-{
-
-  int cmd_len = 8;
-  int rep_len = 10;
-
-  buffer_[0] = 0x75; // sync1
-  buffer_[1] = 0x65; // sync2
-  buffer_[2] = 0x01; // descriptor set (system command)
-  buffer_[3] = 0x02; // payload length
-  buffer_[4] = 0x02; // field length
-  buffer_[5] = 0x02; // field descriptor (communication mode)
-  buffer_[6] = 0xE1; // checksum MSB
-  buffer_[7] = 0xC7; // checksum LSB
-#ifdef __XENO__
-  rt_dev_write(fd_, buffer_, cmd_len);
-  rt_dev_read(fd_, buffer_, rep_len);
-#else
-  write(fd_, buffer_, cmd_len);
-  read(fd_, buffer_, rep_len);
-#endif
-
-  // Compute Fletcher Checksum:
-  uint8_t checksum_byte1 = 0;
-  uint8_t checksum_byte2 = 0;
-  uint16_t checksum = 0;
-  for (int i = 0; i < rep_len - 2; ++i)
-  {
-    checksum_byte1 += buffer_[i];
-    checksum_byte2 += checksum_byte1;
-  }
-  checksum = (checksum_byte1 << 8) | checksum_byte2;
-  if (checksum != ((buffer_[rep_len - 2] << 8) | buffer_[rep_len - 1]))
-  {
-    printString("Invalid Fletcher Checksum! Message: ");
-#ifdef __XENO__
-    for (int i = 0; i < rep_len; ++i)
+    rt_printf("Imu3DM_GX3_25::receive_message(): [Warning] "
+              "Received message with bad checksum: %s\n",
+              msg.reply_debug_string().c_str());
+    if (stream_mode)
     {
-      rt_printf("%02x ", buffer_[i]);
+      rt_printf("Imu3DM_GX3_25::receive_message(): [Status] "
+                "Attempting to re-align with stream...\n");
+      return read_misaligned_msg_from_device(msg);
     }
-#else
-    for (int i = 0; i < rep_len; ++i)
-    {
-      printf("%02x ", buffer_[i]);
-    }
-#endif
-    printString("\n");
     return false;
   }
-
-#ifdef __XENO__
-  for (int i = 0; i < rep_len; ++i)
+  else if (msg.reply_[0] != msg.command_[0])
   {
-    rt_printf("%02x ", buffer_[i]);
-  }
-#else
-  for (int i = 0; i < rep_len; ++i)
-  {
-    printf("%02x ", buffer_[i]);
-  }
-#endif
-  printString("\n");
-
-  cmd_len = 10;
-  rep_len = 10;
-
-  buffer_[0] = 0x75; // sync1
-  buffer_[1] = 0x65; // sync2
-  buffer_[2] = 0x7F; // descriptor set (system command)
-  buffer_[3] = 0x04; // payload length
-  buffer_[4] = 0x04; // field length
-  buffer_[5] = 0x10; // field descriptor (communication mode)
-  buffer_[6] = 0x01; // use
-  if (to_25)
-  {                    // switch to 3DMGX3-25 mode:
-    buffer_[7] = 0x02; // AHRS Direct (3dmgx3-25 single byte protocol)
-    buffer_[8] = 0x74; // checksum MSB
-    buffer_[9] = 0xBD; // checksum LSB
-  }
-  else
-  {                    // switch back to 3DMGX3-45 mode:
-    buffer_[7] = 0x01; // NAV (3dmgx3-45 MIP protocol)
-    buffer_[8] = 0x73; // checksum MSB
-    buffer_[9] = 0xBC; // checksum LSB
-  }
-
-#ifdef __XENO__
-  rt_dev_write(fd_, buffer_, cmd_len);
-  rt_dev_read(fd_, buffer_, rep_len);
-#else
-  write(fd_, buffer_, cmd_len);
-  read(fd_, buffer_, rep_len);
-#endif
-
-  // Compute Fletcher Checksum:
-  checksum_byte1 = 0;
-  checksum_byte2 = 0;
-  checksum = 0;
-  for (int i = 0; i < rep_len - 2; ++i)
-  {
-    checksum_byte1 += buffer_[i];
-    checksum_byte2 += checksum_byte1;
-  }
-  checksum = (checksum_byte1 << 8) | checksum_byte2;
-  if (checksum != ((buffer_[rep_len - 2] << 8) | buffer_[rep_len - 1]))
-  {
-    printString("Invalid Fletcher Checksum! Message: ");
-#ifdef __XENO__
-    for (int i = 0; i < rep_len; ++i)
-    {
-      rt_printf("%02x ", buffer_[i]);
-    }
-#else
-    for (int i = 0; i < rep_len; ++i)
-    {
-      printf("%02x ", buffer_[i]);
-    }
-#endif
-    printString("\n");
+    rt_printf("Imu3DM_GX3_25::receive_message(): [Error] "
+              "Received unexpected message from device.\n");
     return false;
   }
+}
 
-#ifdef __XENO__
-  for (int i = 0; i < rep_len; ++i)
+bool Imu3DM_GX3_25::is_checksum_correct(const ImuMsg& msg)
+{
+  // First we compute the sum of the bytes of the response message except the
+  // last 2 bytes. The last 2 bytes should be the sum of all the other bytes.
+  uint16_t data_checksum = 0;
+  for (unsigned int i=0 ; i<msg.reply_.size()-2 ; ++i)
   {
-    rt_printf("%02x ", buffer_[i]);
+    data_checksum += msg.reply_[i];
   }
-#else
-  for (int i = 0; i < rep_len; ++i)
+  // Then we compute the big-endian of the last two bytes of the reply.
+  uint16_t last_byte_checksum = 
+    bswap_16(*(uint16_t *) (&msg.reply_[msg.reply_.size()-2]) );
+  // return the test value.
+  return data_checksum == last_byte_checksum;
+}
+
+bool Imu3DM_GX3_25::read_misaligned_msg_from_device(ImuMsg& msg)
+{
+
+  // When we read corrupt data, try to keep reading until we catch up with 
+  // clean data:
+  int trial = 0;
+  while (msg.reply_[0] != msg.command_[0] || !is_checksum_correct(msg))
   {
-    printf("%02x ", buffer_[i]);
+    // If to many tries we give up
+    if (trial >= max_realign_trials_)
+    {
+      rt_printf("Imu3DM_GX3_25::read_misaligned_msg_from_device(): [Error] "
+                "Realigning failed!\n");
+      return false;
+    }
+    // Print the corrupt message:
+    rt_printf("Imu3DM_GX3_25::read_misaligned_msg_from_device(): [Warning] "
+              "Read invalid message: %s\n",
+              msg.reply_debug_string().c_str());
+    // Search for the header:
+    int num_missed = 1;
+    for (; num_missed < msg.reply_.size(); ++num_missed)
+    {
+      if (msg.command_[0] == msg.reply_[num_missed])
+      {
+        break;
+      }
+    }
+    // No header found
+    if (num_missed >= msg.reply_.size())
+    {
+      rt_printf("Imu3DM_GX3_25::read_misaligned_msg_from_device(): [Error] "
+                "Realigning failed!\n");
+      return false;
+    }
+    // We MIGHT have found the header!
+    std::vector<uint8_t> fragment (num_missed, 0);
+    // We read the rest of the message
+    bool stream_on = true; // simple read
+    if(usb_stream_.read_device(fragment, stream_on))
+    {
+      rt_printf("Imu3DM_GX3_25::read_misaligned_msg_from_device(): [Error] "
+                "Could not read fragment.\n");
+      return false;
+    }
+    // we copy the rest of the message in the msg.reply_
+    unsigned start_index = msg.reply_.size()-num_missed;
+    for(unsigned i=start_index ; i<msg.reply_.size() ; ++i)
+    {
+      msg.reply_[i] = fragment[i-start_index];
+    }
+    // in case all the procedure failed we try again.
+    ++trial;
   }
-#endif
-  printString("\n");
-
-  printString("Successfully switched to AHRS direct mode.\n");
-
-#if __XENO__
-  rt_task_sleep(1000000000); // 1s
-#else
-  usleep(1000);
-#endif
 
   return true;
 }
 
-bool Imu3DM_GX3_25::setCommunicationSettings(void)
+bool Imu3DM_GX3_25::set_communication_settings(void)
 {
+  rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Status] "
+            "Setting communication settings...\n");
 
-  if (is_45_)
+  // send the configuration to the IMU
+  CommunicationSettingsMsg comm_msg(BaudeRate::BR_921600);
+  if (!send_message(comm_msg))
   {
-    switchMode(true);
-  }
-
-  printString("Setting communication settings...\n");
-
-  //increase baudrate on imu
-  buffer_[0] = CMD_COMM_SETTINGS;
-  buffer_[1] = COMM_SETTINGS_CONF1;
-  buffer_[2] = COMM_SETTINGS_CONF2;
-  buffer_[3] = (uint8_t)1;
-  buffer_[4] = (uint8_t)1;
-  uint32_t baudrate = 921600;
-  *(uint32_t *)(&buffer_[5]) = bswap_32(baudrate);
-  buffer_[9] = (uint8_t)2;
-  buffer_[10] = (uint8_t)0;
-
-  if (!writeToDevice(CMD_COMM_SETTINGS_LEN))
-  {
-    printString("ERROR >> Failed to set communication settings\n");
+    rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
+              "Failed to send the communication settings\n");
     return false;
   }
 
-#ifdef __XENO__
-  //increase baudrate on port
-  rt_config_.config_mask = RTSER_SET_TIMEOUT_RX | RTSER_SET_BAUD;
-  rt_config_.rx_timeout = RTSER_TIMEOUT_INFINITE; // set blocking
-  rt_config_.baud_rate = 921600;
-  res_ = rt_dev_ioctl(fd_, RTSER_RTIOC_SET_CONFIG, &rt_config_);
-  if (res_ != 0)
-  {
-    rt_printf("ERROR >> Failed to configure port after changing IMU baudrate.\n");
-    return false;
-  }
-#else
-  // Change port settings
-  tcgetattr(fd_, &config_);
-  // set port control modes:
-  config_.c_cflag = CLOCAL | CREAD;
-  // set to 8N1 (eight data bits, no parity bit, one stop bit):
-  config_.c_cflag &= ~PARENB;
-  config_.c_cflag &= ~CSTOPB;
-  config_.c_cflag &= ~CSIZE;
-  config_.c_cflag |= CS8;
-  // set to baudrate 921600
-  cfsetispeed(&config_, B921600);
-  cfsetospeed(&config_, B921600);
-  // set port properties after flushing buffer
-  if (tcsetattr(fd_, TCSAFLUSH, &config_) < 0)
-  {
-    printf("ERROR >> Failed to configure port after changing IMU baudrate.\n");
-    return false;
-  }
-#endif
+  // reset the computer port Baude Rate
+  port_config_.baude_rate_ = BaudeRate::BR_921600;
+  usb_stream_.set_port_config(port_config_);
 
-  if (!readFromDevice(CMD_COMM_SETTINGS, RPLY_COMM_SETTINGS_LEN))
+  // Check that the Device received the message.
+  bool stream_mode = false; // Poll mode
+  if (!receive_message(comm_msg, stream_mode))
   {
-    printString("ERROR >> Failed to set communication settings\n");
+    rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
+              "Failed to receive the communication settings reply\n");
     return false;
   }
 
-  printString("Set communication settings successfully with reply: ");
-#ifdef __XENO__
-  for (int i = 0; i < RPLY_COMM_SETTINGS_LEN; ++i)
-  {
-    rt_printf("%02x ", buffer_[i]);
-  }
-  rt_printf("\n");
-#else
-  for (int i = 0; i < RPLY_COMM_SETTINGS_LEN; ++i)
-  {
-    printf("%02x ", buffer_[i]);
-  }
-  printf("\n");
-#endif
-
+  rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Status] "
+            "Set communication settings successfully with reply: %s\n",
+            comm_msg.reply_debug_string().c_str());
   return true;
 }
 
-bool Imu3DM_GX3_25::setSamplingSettings(void)
+bool Imu3DM_GX3_25::set_sampling_settings(void)
 {
 
-  printString("Setting sampling settings...\n");
+  print_string("Setting sampling settings...\n");
 
   // setup sampling config message
   buffer_[0] = CMD_SAMP_SETTINGS;
@@ -500,17 +231,17 @@ bool Imu3DM_GX3_25::setSamplingSettings(void)
 
   if (!writeToDevice(CMD_SAMP_SETTINGS_LEN))
   {
-    printString("ERROR >> Failed to set sampling settings\n");
+    print_string("ERROR >> Failed to set sampling settings\n");
     return false;
   }
 
   if (!readFromDevice(CMD_SAMP_SETTINGS, RPLY_SAMP_SETTINGS_LEN))
   {
-    printString("ERROR >> Failed to set sampling settings\n");
+    print_string("ERROR >> Failed to set sampling settings\n");
     return false;
   }
 
-  printString("Set sampling settings successfully with reply: ");
+  print_string("Set sampling settings successfully with reply: ");
 #ifdef __XENO__
   for (int i = 0; i < RPLY_SAMP_SETTINGS_LEN; ++i)
   {
@@ -539,13 +270,13 @@ bool Imu3DM_GX3_25::initTimestamp(void)
 
   if (!writeToDevice(CMD_TIMER_LEN))
   {
-    printString("ERROR >> Failed to send initialize timestamp command.\n");
+    print_string("ERROR >> Failed to send initialize timestamp command.\n");
     return false;
   }
 
   if (!readFromDevice(CMD_TIMER, RPLY_TIMER_LEN))
   {
-    printString("ERROR >> Failed to read initialize timestamp command.\n");
+    print_string("ERROR >> Failed to read initialize timestamp command.\n");
     return false;
   }
 
@@ -569,17 +300,17 @@ bool Imu3DM_GX3_25::captureGyroBias(void)
 
   if (!writeToDevice(CMD_GYRO_BIAS_LEN))
   {
-    printString("ERROR >> Failed to capture gyro bias.\n");
+    print_string("ERROR >> Failed to capture gyro bias.\n");
     return false;
   }
 
   if (!readFromDevice(CMD_GYRO_BIAS, RPLY_GYRO_BIAS_LEN))
   {
-    printString("ERROR >> Failed to read gyro bias reply.\n");
+    print_string("ERROR >> Failed to read gyro bias reply.\n");
     return false;
   }
 
-  printString("done.\n");
+  print_string("done.\n");
   return true;
 }
 
@@ -618,13 +349,13 @@ bool Imu3DM_GX3_25::startStream(void)
 
   if (!writeToDevice(CMD_CONT_MODE_LEN))
   {
-    printString("ERROR >> Failed to start continuous mode.\n");
+    print_string("ERROR >> Failed to start continuous mode.\n");
     return false;
   }
 
   if (!readFromDevice(CMD_CONT_MODE, RPLY_CONT_MODE_LEN))
   {
-    printString("ERROR >> Failed to start continuous mode.\n");
+    print_string("ERROR >> Failed to start continuous mode.\n");
     return false;
   }
 
@@ -646,7 +377,7 @@ bool Imu3DM_GX3_25::stopStream(void)
 
   if (!writeToDevice(CMD_STOP_CONT_LEN))
   {
-    printString("ERROR >> Failed to stop continuous mode.\n");
+    print_string("ERROR >> Failed to stop continuous mode.\n");
     return false;
   }
 
@@ -669,7 +400,7 @@ bool Imu3DM_GX3_25::closePort(void)
 
   if (res_ != 0)
   {
-    printString("ERROR >> Failed to close port.\n");
+    print_string("ERROR >> Failed to close port.\n");
     return false;
   }
 
@@ -760,7 +491,7 @@ bool Imu3DM_GX3_25::receiveAccelAngrate(void)
   {
     if (!readFromDevice(CMD_AC_AN, RPLY_AC_AN_LEN))
     {
-      printString("ERROR >> Failed to read streamed message.\n");
+      print_string("ERROR >> Failed to read streamed message.\n");
       return false;
     }
   }
@@ -769,12 +500,12 @@ bool Imu3DM_GX3_25::receiveAccelAngrate(void)
     buffer_[0] = CMD_AC_AN;
     if (!writeToDevice(1))
     {
-      printString("ERROR >> Failed to send poll for data.\n");
+      print_string("ERROR >> Failed to send poll for data.\n");
       return false;
     }
     if (!readFromDevice(CMD_AC_AN, RPLY_AC_AN_LEN))
     {
-      printString("WARNING >> Failed to read polled message, skipping.\n");
+      print_string("WARNING >> Failed to read polled message, skipping.\n");
       return false;
     }
   }
@@ -826,7 +557,7 @@ bool Imu3DM_GX3_25::receiveStabAccelAngrateMag(void)
   {
     if (!readFromDevice(CMD_STAB_AC_AN_MAG, RPLY_STAB_AC_AN_MAG_LEN))
     {
-      printString("ERROR >> Failed to read streamed message.\n");
+      print_string("ERROR >> Failed to read streamed message.\n");
       return false;
     }
   }
@@ -835,12 +566,12 @@ bool Imu3DM_GX3_25::receiveStabAccelAngrateMag(void)
     buffer_[0] = CMD_STAB_AC_AN_MAG;
     if (!writeToDevice(1))
     {
-      printString("ERROR >> Failed to send poll for data.\n");
+      print_string("ERROR >> Failed to send poll for data.\n");
       return false;
     }
     if (!readFromDevice(CMD_STAB_AC_AN_MAG, RPLY_STAB_AC_AN_MAG_LEN))
     {
-      printString("WARNING >> Failed to read polled message, skipping.\n");
+      print_string("WARNING >> Failed to read polled message, skipping.\n");
       return false;
     }
   }
@@ -880,7 +611,7 @@ bool Imu3DM_GX3_25::receiveAccelAngrateOrient(void)
   {
     if (!readFromDevice(CMD_AC_AN_OR, RPLY_AC_AN_OR_LEN))
     {
-      printString("ERROR >> Failed to read streamed message.\n");
+      print_string("ERROR >> Failed to read streamed message.\n");
       return false;
     }
   }
@@ -889,12 +620,12 @@ bool Imu3DM_GX3_25::receiveAccelAngrateOrient(void)
     buffer_[0] = CMD_AC_AN_OR;
     if (!writeToDevice(1))
     {
-      printString("ERROR >> Failed to send poll for data.\n");
+      print_string("ERROR >> Failed to send poll for data.\n");
       return false;
     }
     if (!readFromDevice(CMD_AC_AN_OR, RPLY_AC_AN_OR_LEN))
     {
-      printString("WARNING >> Failed to read polled message, skipping.\n");
+      print_string("WARNING >> Failed to read polled message, skipping.\n");
       return false;
     }
   }
@@ -935,7 +666,7 @@ bool Imu3DM_GX3_25::receiveQuat(void)
   {
     if (!readFromDevice(CMD_QUAT, RPLY_QUAT_LEN))
     {
-      printString("ERROR >> Failed to read streamed message.\n");
+      print_string("ERROR >> Failed to read streamed message.\n");
       return false;
     }
   }
@@ -944,12 +675,12 @@ bool Imu3DM_GX3_25::receiveQuat(void)
     buffer_[0] = CMD_QUAT;
     if (!writeToDevice(1))
     {
-      printString("ERROR >> Failed to send poll for data.\n");
+      print_string("ERROR >> Failed to send poll for data.\n");
       return false;
     }
     if (!readFromDevice(CMD_QUAT, RPLY_QUAT_LEN))
     {
-      printString("WARNING >> Failed to read polled message, skipping.\n");
+      print_string("WARNING >> Failed to read polled message, skipping.\n");
       return false;
     }
   }
@@ -1014,7 +745,7 @@ bool Imu3DM_GX3_25::readQuat(double *quat, double &timestamp)
 
 // AUXILIARY FUNCTIONS:
 
-void Imu3DM_GX3_25::printString(const std::string& string)
+void Imu3DM_GX3_25::print_string(const std::string& string)
 {
   rt_printf("%s", string.c_str());
 }
@@ -1107,118 +838,13 @@ bool Imu3DM_GX3_25::readFromDevice(uint8_t command, int len)
     return false;
   }
 
-  if (!isChecksumCorrect(buffer_, len))
-  {
-    printString("ERROR >> Received message with bad checksum: ");
-    for (int i = 0; i < len; ++i)
-    {
-      rt_printf("%02x ", buffer_[i]);
-    }
-    rt_printf("\n");
-    if (stream_data_)
-    {
-      printString("WARNING >> Attempting to re-align with stream...\n");
-      return readMisalignedMsgFromDevice(command, len);
-    }
-    return false;
-  }
-  else if (buffer_[0] != command)
-  {
-    printString("ERROR >> Received unexpected message from device.\n");
-    return false;
-  }
-
   return true;
 }
 
-uint16_t Imu3DM_GX3_25::bswap_16(uint16_t x)
-{
-  return (x >> 8) | (x << 8);
-}
 
-uint32_t Imu3DM_GX3_25::bswap_32(uint32_t x)
-{
-  return (bswap_16(x & 0xffff) << 16) | (bswap_16(x >> 16));
-}
-
-bool Imu3DM_GX3_25::isChecksumCorrect(uint8_t *rep, int rep_len)
-{
-
-  uint16_t checksum = 0;
-  for (int i = 0; i < rep_len - 2; i++)
-  {
-    checksum += ((uint8_t *)rep)[i];
-  }
-
-  return checksum == bswap_16(*(uint16_t *)((uint8_t *)rep + rep_len - 2));
-}
 
 // NOT CURRENTLY USED:
-bool Imu3DM_GX3_25::readMisalignedMsgFromDevice(uint8_t cmd, int len)
-{
 
-  // When we read corrupt data, try to keep reading until we catch up with clean data:
-  int trial = 0;
-  while (buffer_[0] != cmd || !isChecksumCorrect(buffer_, len))
-  {
-    if (trial >= max_realign_trials_)
-    {
-      printString("ERROR >> Realigning failed!\n");
-      return false;
-    }
-
-    // Print the corrupt message:
-    printString("WARNING >> Read invalid message: ");
-    for (int i = 0; i < len; ++i)
-    {
-#ifdef __XENO__
-      rt_printf("%02x ", buffer_[i]);
-#else
-      printf("%02x ", buffer_[i]);
-#endif
-    }
-    printString("\n");
-
-    // Search for the header:
-    int num_missed = 1;
-    for (; num_missed < len; ++num_missed)
-    {
-      if (cmd == buffer_[num_missed])
-      {
-        break;
-      }
-    }
-
-    if (num_missed >= len)
-    {
-      printString("ERROR >> Realigning failed!\n");
-      return false;
-    }
-
-    // We MIGHT have found the header!
-    uint8_t fragment[len];
-#ifdef __XENO__
-    res_ = rt_dev_read(fd_, fragment, num_missed);
-#else
-    res_ = read(fd_, fragment, num_missed);
-#endif
-
-    if (res_ != num_missed)
-    {
-      printString("ERROR >> Could not read fragment.\n");
-      return false;
-    }
-
-    uint8_t tmp_buf[len];
-    memcpy(tmp_buf, &buffer_[num_missed], (len - num_missed) * sizeof(uint8_t));
-    memcpy(&tmp_buf[len - num_missed], fragment, num_missed * sizeof(uint8_t));
-    memcpy(buffer_, tmp_buf, len * sizeof(uint8_t));
-
-    ++trial;
-  }
-
-  return true;
-}
 
 /////////////// C interface //////////
 Imu3DM_GX3_25 myIMU("ttyACM0", true, false, false);
@@ -1251,4 +877,340 @@ int read_accel_angrate(double *accel, double *angrate, double timestamp)
   }
 }
 
-} // namespace
+} // namespace imu_3DM_GX3_25
+} // namespace imu_core
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  // // Message incorrect
+  // if (!is_checksum_correct(msg))
+  // {
+  //   rt_printf("UsbStream::read_device: "
+  //             "Received message %s with bad checksum from command %s.",
+  //             msg.reply_debug_string().c_str(),
+  //             msg.command_debug_string().c_str());
+  //   if (stream_mode_on_)
+  //   {
+  //     rt_printf("UsbStream::read_device: WARNING, Attempting to re-align with "
+  //               "stream...\n");
+  //     return read_misaligned_msg_from_device(msg);
+  //   }
+  //   return false;
+  // }
+  // else if (is_header_found(msg))
+  // {
+  //   rt_printf("ERROR >> Received unexpected message from device.\n");
+  //   return false;
+  // }
+
+
+// bool UsbStream::is_checksum_correct(uint8_t *rep, int rep_len)
+// {
+//   uint16_t checksum = 0;
+//   for (int i = 0; i < rep_len - 2; i++)
+//   {
+//     checksum += ((uint8_t *)rep)[i];
+//   }
+
+//   return checksum == bswap_16(*(uint16_t *)((uint8_t *)rep + rep_len - 2));
+// }
+
+// bool UsbStream::read_misaligned_msg_from_device(
+//   const std::vector<uint8_t>& command,
+//   std::vector<uint8_t>& reply)
+// {
+
+//   // When we read corrupt data, try to keep reading until we catch up with clean data:
+//   int trial = 0;
+//   while (cmd_buffer_[0] != cmd || !is_checksum_correct(cmd_buffer_.data(), len))
+//   {
+//     if (trial >= max_realign_trials_)
+//     {
+//       rt_printf("ERROR >> Realigning failed!\n");
+//       return false;
+//     }
+
+//     // Print the corrupt message:
+//     rt_printf("WARNING >> Read invalid message: ");
+//     for (int i = 0; i < len; ++i)
+//     {
+//       rt_printf("%02x ", cmd_buffer_[i]);
+//     }
+//     rt_printf("\n");
+
+//     // Search for the header:
+//     int num_missed = 1;
+//     for (; num_missed < len; ++num_missed)
+//     {
+//       if (cmd == cmd_buffer_[num_missed])
+//       {
+//         break;
+//       }
+//     }
+
+//     if (num_missed >= len)
+//     {
+//       rt_printf("ERROR >> Realigning failed!\n");
+//       return false;
+//     }
+
+//     // We MIGHT have found the header!
+//     uint8_t fragment[len];
+// #if defined(XENOMAI)
+//     return_value_ = rt_dev_read(file_id_, fragment, num_missed);
+// #elif defined(RT_PREEMPT) || defined(NON_REAL_TIME)
+//     return_value_ = read(file_id_, fragment, num_missed);
+// #endif
+//     if (return_value_ != num_missed)
+//     {
+//       int errsv = errno;
+//       rt_printf("ERROR >> Failed to read fragment from port %s with error\n"
+//               "\t%s\n", file_name_.c_str(), strerror(errsv));
+//       return false;
+//     }
+
+//     uint8_t tmp_buf[len];
+//     memcpy(tmp_buf, &cmd_buffer_[num_missed], (len - num_missed) * sizeof(uint8_t));
+//     memcpy(&tmp_buf[len - num_missed], fragment, num_missed * sizeof(uint8_t));
+//     memcpy(cmd_buffer_.data(), tmp_buf, len * sizeof(uint8_t));
+
+//     ++trial;
+//   }
+
+//   return true;
+// }
+
+// bool is_header_found(msg)
+// {
+//   bool header_found = true;
+//   for (unsigned i=0; i<msg.command.size())
+//   {
+//     header_found = header_found && (msg.command_[i] != msg.reply_[i])
+//   }
+// }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// bool Imu3DM_GX3_25::switchMode(bool to_25)
+// {
+
+//   int cmd_len = 8;
+//   int rep_len = 10;
+//   // set IMU GX3-45 to idle
+//   buffer_[0] = 0x75; // sync1
+//   buffer_[1] = 0x65; // sync2
+//   buffer_[2] = 0x01; // descriptor set (system command)
+//   buffer_[3] = 0x02; // payload length
+//   buffer_[4] = 0x02; // field length
+//   buffer_[5] = 0x02; // field descriptor (communication mode)
+//   buffer_[6] = 0xE1; // checksum MSB
+//   buffer_[7] = 0xC7; // checksum LSB
+// #ifdef __XENO__
+//   rt_dev_write(fd_, buffer_, cmd_len);
+//   rt_dev_read(fd_, buffer_, rep_len);
+// #else
+//   write(fd_, buffer_, cmd_len);
+//   read(fd_, buffer_, rep_len);
+// #endif
+
+//   // Compute Fletcher Checksum:
+//   uint8_t checksum_byte1 = 0;
+//   uint8_t checksum_byte2 = 0;
+//   uint16_t checksum = 0;
+//   for (int i = 0; i < rep_len - 2; ++i)
+//   {
+//     checksum_byte1 += buffer_[i];
+//     checksum_byte2 += checksum_byte1;
+//   }
+//   checksum = (checksum_byte1 << 8) | checksum_byte2;
+//   if (checksum != ((buffer_[rep_len - 2] << 8) | buffer_[rep_len - 1]))
+//   {
+//     print_string("Invalid Fletcher Checksum! Message: ");
+// #ifdef __XENO__
+//     for (int i = 0; i < rep_len; ++i)
+//     {
+//       rt_printf("%02x ", buffer_[i]);
+//     }
+// #else
+//     for (int i = 0; i < rep_len; ++i)
+//     {
+//       printf("%02x ", buffer_[i]);
+//     }
+// #endif
+//     print_string("\n");
+//     return false;
+//   }
+
+// #ifdef __XENO__
+//   for (int i = 0; i < rep_len; ++i)
+//   {
+//     rt_printf("%02x ", buffer_[i]);
+//   }
+// #else
+//   for (int i = 0; i < rep_len; ++i)
+//   {
+//     printf("%02x ", buffer_[i]);
+//   }
+// #endif
+//   print_string("\n");
+
+//   cmd_len = 10;
+//   rep_len = 10;
+
+//   // Communication Mode (0x7F, 0x10)
+//   buffer_[0] = 0x75; // sync1
+//   buffer_[1] = 0x65; // sync2
+//   buffer_[2] = 0x7F; // descriptor set (system command)
+//   buffer_[3] = 0x04; // payload length
+//   buffer_[4] = 0x04; // field length
+//   buffer_[5] = 0x10; // field descriptor (communication mode)
+//   buffer_[6] = 0x01; // use new settings
+//   if (to_25)
+//   {                    // switch to 3DMGX3-25 mode:
+//     buffer_[7] = 0x02; // AHRS Direct (3dmgx3-25 single byte protocol)
+//     buffer_[8] = 0x74; // checksum MSB
+//     buffer_[9] = 0xBD; // checksum LSB
+//   }
+//   else
+//   {                    // switch back to 3DMGX3-45 mode:
+//     buffer_[7] = 0x01; // NAV (3dmgx3-45 MIP protocol)
+//     buffer_[8] = 0x73; // checksum MSB
+//     buffer_[9] = 0xBC; // checksum LSB
+//   }
+
+// #ifdef __XENO__
+//   rt_dev_write(fd_, buffer_, cmd_len);
+//   rt_dev_read(fd_, buffer_, rep_len);
+// #else
+//   write(fd_, buffer_, cmd_len);
+//   read(fd_, buffer_, rep_len);
+// #endif
+
+//   // Compute Fletcher Checksum:
+//   checksum_byte1 = 0;
+//   checksum_byte2 = 0;
+//   checksum = 0;
+//   for (int i = 0; i < rep_len - 2; ++i)
+//   {
+//     checksum_byte1 += buffer_[i];
+//     checksum_byte2 += checksum_byte1;
+//   }
+//   checksum = (checksum_byte1 << 8) | checksum_byte2;
+//   if (checksum != ((buffer_[rep_len - 2] << 8) | buffer_[rep_len - 1]))
+//   {
+//     print_string("Invalid Fletcher Checksum! Message: ");
+// #ifdef __XENO__
+//     for (int i = 0; i < rep_len; ++i)
+//     {
+//       rt_printf("%02x ", buffer_[i]);
+//     }
+// #else
+//     for (int i = 0; i < rep_len; ++i)
+//     {
+//       printf("%02x ", buffer_[i]);
+//     }
+// #endif
+//     print_string("\n");
+//     return false;
+//   }
+
+// #ifdef __XENO__
+//   for (int i = 0; i < rep_len; ++i)
+//   {
+//     rt_printf("%02x ", buffer_[i]);
+//   }
+// #else
+//   for (int i = 0; i < rep_len; ++i)
+//   {
+//     printf("%02x ", buffer_[i]);
+//   }
+// #endif
+//   print_string("\n");
+
+//   print_string("Successfully switched to AHRS direct mode.\n");
+
+// #if __XENO__
+//   rt_task_sleep(1000000000); // 1s
+// #else
+//   usleep(1000);
+// #endif
+
+//   return true;
+// }

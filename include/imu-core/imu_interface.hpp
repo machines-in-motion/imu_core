@@ -26,6 +26,18 @@ public:
    * @brief Check if the command_ and the reply_ objects has been initialized.
    */
   bool is_valid();
+  /**
+   * @brief Return the reply debug string
+   * 
+   * @return std::string 
+   */
+  std::string reply_debug_string();
+  /**
+   * @brief Return the command debug string
+   * 
+   * @return std::string 
+   */
+  std::string command_debug_string();
 public:
   /**
    * @brief Contain the command to be written or that has been written
@@ -39,7 +51,7 @@ public:
 
 /**
  * @brief This enum define the data streamed by the IMU upon setting the
- * continuous mode.
+ * continuous mode. Not used yet.
  */
 enum ImuMsgTypes{
   /**
@@ -77,7 +89,7 @@ public:
    * @param port_name is the device path in linux: e.g. /dev/tty0
    * @param stream_data is if the user wants to stream the data or poll them.
    */
-  ImuInterface(const std::string port_name, bool stream_data);
+  ImuInterface(const std::string port_name);
   /**
    * @brief Destroy the ImuInterface object
    */
@@ -108,7 +120,7 @@ public:
     return angular_rate_;
   }
 
-private:
+protected:
   /**
    * @brief Measurement of the accelerometer
    */
@@ -121,10 +133,6 @@ private:
    * @brief Name of the linux path, e.g. /dev/ttyACM0
    */
   std::string port_name_;
-  /**
-   * @brief Do we stream data or not.
-   */
-  bool stream_data_;
 };
 
 } // namespace

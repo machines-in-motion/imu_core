@@ -4,209 +4,373 @@
 #include "real_time_tools/thread.hpp"
 #include "real_time_tools/iostream.hpp"
 #include "real_time_tools/mutex.hpp"
-
-#include <stdint.h>
-#include <stdio.h>
-#include <termio.h>
-
-#include <boost/thread/thread.hpp>
-#include <boost/shared_ptr.hpp>
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
+#include "real_time_tools/usb_stream.hpp"
+#include "real_time_tools/timer.hpp"
 
 #include "imu-core/imu_interface.hpp"
 
 namespace imu_core
 {
+namespace imu_3DM_GX3_25
+{
 
-/* SUPPORTED MESSAGE TYPES: */
+/**
+ * @brief This class correspond to the driver of the imu 3DM_GX3_25 from
+ * MicroStrain. Official API based on the common interface for IMUS.
+ * 
+ */
+class Imu3DM_GX3_25: public ImuInterface
+{
+/**
+ * Public interface
+ */
+public:
+  /**
+   * @brief Construct a new Imu3DM_GX3_25 object
+   * 
+   * @param port_name  is the linux device name, e.g. "/dev/ttyACM0".
+   */
+  Imu3DM_GX3_25(const std::string& port_name);
 
-// Acceleration and angular rate:
-#define CMD_AC_AN 0xc2
-#define CMD_AC_AN_LEN 1
-#define RPLY_AC_AN_LEN 31
+  /**
+   * @brief Destroy the Imu3DM_GX3_25 object
+   */
+  virtual ~Imu3DM_GX3_25(void);
 
-// Stabilized acceleration, angular rate and magnetometer:
-#define CMD_STAB_AC_AN_MAG 0xd2
-#define CMD_STAB_AC_AN_MAG_LEN 1
-#define RPLY_STAB_AC_AN_MAG_LEN 43
+  /**
+   * @brief Inherted method from the ImuInterface. It launch the thread to
+   * stream the data and initialize the usb communication.
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool initialize();
+  
+  /**
+   * Helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
+   */
 
-// Acceleration, angular rate and orientation matrix:
-#define CMD_AC_AN_OR 0xc8
-#define CMD_AC_AN_OR_LEN 1
-#define RPLY_AC_AN_OR_LEN 67
+  /**
+   * @brief Read a message form the IMU and check the alignement, the checksum
+   * and the header.
+   * 
+   * @param msg the message conatining the command sent and the bufffer to
+   * store the message.
+   * @return true if success
+   * @return false if failure
+   */
+  bool receive_message(ImuMsg& msg, bool stream_mode);
 
-// Quaternion:
-#define CMD_QUAT 0xdf
-#define CMD_QUAT_LEN 1
-#define RPLY_QUAT_LEN 23
+  /**
+   * @brief Check if the received information has the correct checksum.
+   * 
+   * @param msg is the ImuMsg containing the reponse and the command message.
+   * @return true 
+   * @return false 
+   */
+  bool is_checksum_correct(const ImuMsg& msg);
 
-/* INTERACTION MESSAGES: */
+  /**
+   * @brief Realign the reading loop to misaligned messages.
+   * 
+   * @param msg the msg command and reply
+   * @return true if success
+   * @return false if failure
+   */
+  bool read_misaligned_msg_from_device(ImuMsg& msg);
 
-// Set continuous mode:
-#define CMD_CONT_MODE 0xc4
-#define CMD_CONT_MODE_LEN 4
-#define CONT_MODE_CONF1 0xc1
-#define CONT_MODE_CONF2 0x29
-#define RPLY_CONT_MODE_LEN 8
+  /**
+   * @brief Send a message to the IMU
+   * 
+   * @param msg the message to be sent
+   * @return true if success
+   * @return false if failure
+   */
+  bool send_message(const ImuMsg& msg)
+  {
+    return usb_stream_.write_device(msg.command_);
+  }
 
-// Stop continuous mode:
-#define CMD_STOP_CONT 0xfa
-#define CMD_STOP_CONT_LEN 3
-#define STOP_CONT_CONF1 0x75
-#define STOP_CONT_CONF2 0xb4
+  /**
+   * @brief Set the communication settings of the IMU
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool set_communication_settings(void);
+
+  /**
+   * @brief Set the sampling settings of the IMU data
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool set_sampling_settings(void);
+
+  /**
+   * @brief initialize the internal IMU time stamp to the PC one.
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool initialize_time_stamp(void);
+
+  /**
+   * @brief Wait 3 seconds and get the gyroscope bias.
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool capture_gyro_bias(void);
+  
+  /**
+   * @brief This helper function allows us to start the thread.
+   * 
+   * @param object is the current IMU object
+   * @return THREAD_FUNCTION_RETURN_TYPE
+   */
+  static THREAD_FUNCTION_RETURN_TYPE reading_loop_helper(void* object)
+  {
+    Imu3DM_GX3_25* imu_object = static_cast<Imu3DM_GX3_25*>(object);
+    if(imu_object->reading_loop())
+    {
+      rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Status] "
+                "thread closing normally.");
+    }else{
+      rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Error] "
+                "thread closing after an error occured.");
+    }
+  }
+
+  /**
+   * @brief This is the sensor acquisition loop
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool reading_loop(void);
+
+  /**
+   * @brief Flag the reading loop to stop its activity and join the thread
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool stop_reading_loop(void);
+
+  /**
+   * @brief Utilities to swap 16 bits
+   * 
+   * @param x 
+   * @return uint16_t 
+   */
+  static inline uint16_t bswap_16(uint16_t x){
+    return (x >> 8) | (x << 8);
+  }
+
+  /**
+   * @brief Utilities to swap 32 bits
+   * 
+   * @param x 
+   * @return uint16_t 
+   */
+  static inline uint16_t bswap_32(uint16_t x)
+  {
+    return (bswap_16(x & 0xffff) << 16) | (bswap_16(x >> 16));
+  }
+
+private:
+  /**
+   * @brief Create a real time thread.
+   */
+  real_time_tools::RealTimeThread thread_;
+  /**
+   * @brief Manage real time mutexes.
+   */
+  real_time_tools::RealTimeMutex mutex_;
+  /**
+   * @brief Manage the real time communication with the device.
+   */
+  real_time_tools::UsbStream usb_stream_;
+  /**
+   * @brief Computer port configuration
+   */
+  real_time_tools::PortConfig port_config_;
+  /**
+   * @brief Maximum number of try while realigning the data stream.
+   */
+  int max_realign_trials_;
+  /**
+   * @brief Measure the performance of the reading loop.
+   */
+  real_time_tools::Timer timer_;
+  /**
+   * @brief Get the data time stamp
+   */
+  double time_stamp_;
+};
+
+
+/**
+ * @brief Simple renaming for conveniency.
+ */
+typedef real_time_tools::PortConfig::BaudeRate BaudeRate;
+
+
+/**
+ * @brief This class allow us to send a simple message to the IMU in order to
+ * modify its communication settings.
+ */
+class CommunicationSettingsMsg: public ImuMsg
+{
+public:
+  /**
+   * @brief this allow us to define if the value should return, changed, or
+   * changed and stored.
+   */
+  enum ChangeParam{
+    GetCurrentValue=0,
+    ChangeValueTemporarily=1,
+    ChangeValuePermanently=2,
+  };
+
+  /**
+   * @brief Construct a new CommunicationSettingsMsg object
+   * 
+   * @param baude_rate_cst is the baude rate the imu can use based on the
+   * available ones:
+   *    BaudeRate::BR_115200
+   *    BaudeRate::BR_230400
+   *    BaudeRate::BR_460800
+   *    BaudeRate::BR_921600
+   * @param function_selector 
+   */
+  CommunicationSettingsMsg(BaudeRate baude_rate_cst,
+                           ChangeParam function_selector =
+                            ChangeParam::ChangeValueTemporarily):
+    ImuMsg()
+  {
+    command_.resize(11);
+    command_[0] = 0xd9 ; // header
+    command_[1] = 0xc3 ; // user confirmation 1
+    command_[2] = 0x55 ; // user confirmation 2
+    command_[3] = (uint8_t)1; // UART1, Primary UART for host communication
+    command_[4] = (uint8_t)function_selector;
+    uint32_t baud_rate = 0;
+    switch (baude_rate_cst)
+    {
+    case BaudeRate::BR_115200:
+      baud_rate = 115200;
+      *(uint32_t *)(&command_[5]) = Imu3DM_GX3_25::bswap_32(baud_rate);
+      break;
+    case BaudeRate::BR_230400:
+      baud_rate = 230400;
+      *(uint32_t *)(&command_[5]) = Imu3DM_GX3_25::bswap_32(baud_rate);
+      break;
+    case BaudeRate::BR_460800:
+      baud_rate = 460800;
+      *(uint32_t *)(&command_[5]) = Imu3DM_GX3_25::bswap_32(baud_rate);
+      break;
+    case BaudeRate::BR_921600:
+      baud_rate = 921600;
+      *(uint32_t *)(&command_[5]) = Imu3DM_GX3_25::bswap_32(baud_rate);
+      break;    
+    default:
+      throw std::runtime_error(
+        "ImuMsgCommunicationSettings::ImuMsgCommunicationSettings() : "
+        "Baude rate supported by the imu, fix the code or correct baude rate");
+      break;
+    }
+    command_[9] = (uint8_t)2; // 2: Selected UART Enabled ; 0: Selected UART Disabled
+    command_[10] = (uint8_t)0; // Reserved: Set to 0
+    reply_.resize(10);
+  }
+};
+
+/**
+ * @brief This class allow us to send a simple message to the IMU in order to
+ * modify its data sampling settings.
+ */
 
 // Set sampling settings:
 #define CMD_SAMP_SETTINGS 0xdb
 #define CMD_SAMP_SETTINGS_LEN 20
+
 #define SAMP_SETTINGS_CONF1 0xa8
 #define SAMP_SETTINGS_CONF2 0xb9
 #define RPLY_SAMP_SETTINGS_LEN 19
-
-// Set communication settings:
-#define CMD_COMM_SETTINGS 0xd9
-#define CMD_COMM_SETTINGS_LEN 11
-#define COMM_SETTINGS_CONF1 0xc3
-#define COMM_SETTINGS_CONF2 0x55
-#define RPLY_COMM_SETTINGS_LEN 10
-
-// Record gyroscope biases:
-#define CMD_GYRO_BIAS 0xcd
-#define CMD_GYRO_BIAS_LEN 5
-#define GYRO_BIAS_CONF1 0xc1
-#define GYRO_BIAS_CONF2 0x29
-#define RPLY_GYRO_BIAS_LEN 19
-
-// Set onboard timestamp:
-#define CMD_TIMER 0xd7
-#define CMD_TIMER_LEN 8
-#define TIMER_CONF1 0xc1
-#define TIMER_CONF2 0x29
-#define RPLY_TIMER_LEN 7
-
-/**
- * @brief This class correspond to the driver of the imu 3DM_GX3_25 from
- * MicroStrain.
- */
-class Imu3DM_GX3_25
+class SamplingSettingsMsg: public ImuMsg
 {
-  /**
- * Official API based on the common interface for IMUS
- */
 public:
   /**
-     * @brief Construct a new Imu3DM_GX3_25 object
-     * 
-     * @param portname is the linux device name, e.g. "/dev/ttyACM0".
-     * @param stream_data defines if the hardware is on poll or if it just
-     * streams the data
-     * @param real_time defines if we operate with a real_time operating system or not. @todo to be removed.
-     * @param is_45 ????
-     */
-  Imu3DM_GX3_25(const std::string& portname,
-                bool stream_data, bool real_time, bool is_45);
-  virtual ~Imu3DM_GX3_25(void);
-
-  bool initialize(uint8_t *message_type, int num_messages);
-  bool setStreamThreadParams(std::string& keyword,
-                             int priority,
-                             int stack_size,
-                             std::vector<int>& cpu_id,
-                             int delay_ns);
-  bool readAccelAngrate(double *accel, double *angrate, double &timestamp);
-  bool readStabAccelAngrateMag(double *stab_accel, double *angrate, double *stab_mag, double &timestamp);
-  bool readQuat(double *quat, double &timestamp);
-
-  /**
-   * @brief Public interface for this specific one.
+   * @brief this allow us to define if the value should return, changed, or
+   * changed and stored.
    */
-public:
-  bool openPort(void);
-  bool closePort(void);
-  bool switchMode(bool);
-  bool setCommunicationSettings(void);
-  bool setSamplingSettings(void);
-  bool initTimestamp(void);
-  bool captureGyroBias(void);
-  bool setTimeout(double timeout);
+  enum ChangeParam{
+    GetCurrentValue=0,
+    ChangeValueTemporarily=1,
+    ChangeValueStoreVolatile=2,
+    ChangeValueNoReply=3,
+  };
 
-  bool startStream(void);
-  bool stopStream(void);
-
-  static THREAD_FUNCTION_RETURN_TYPE readingLoopHelper(void* object)
+  /**
+   * @brief Construct a new SamplingSettingsMsg object
+   * 
+   * @param data_rate_decimation this divides the maximum rate of data (1000Hz).
+   * So if data_rate_decimation = 1, the rate of data is 1000Hz.
+   * And if data_rate_decimation = 1000, the rate of data is 1Hz.
+   * 
+   * @param function_selector 
+   */
+  SamplingSettingsMsg(uint16_t data_rate_decimation = 1,
+                      ChangeParam function_selector = 
+                        ChangeParam::ChangeValueTemporarily):
+    ImuMsg()
   {
-    Imu3DM_GX3_25* imu_object = static_cast<Imu3DM_GX3_25*>(object);
-    if(imu_object->readingLoop())
+    command_.resize(11);
+    command_[0] = 0xdb ; // header
+    command_[1] = 0xa8 ; // user confirmation 1
+    command_[2] = 0xb9 ; // user confirmation 2
+    command_[3] = (uint8_t)function_selector;
+    assert(data_rate_decimation <= 1000 && data_rate_decimation >= 1 && 
+           "The data rate decimation must be in [1 ; 1000]");
+    *(uint32_t *)(&command_[4]) = Imu3DM_GX3_25::bswap_32(data_rate_decimation);
+    
+    
+    *(uint16_t *)(&buffer_[6]) = bswap_16(fselect);
+    
+    uint32_t baud_rate = 0;
+    switch (baude_rate_cst)
     {
-      rt_printf("imu thread closing normally.");
-    }else{
-      rt_printf("imu thread closing after an error occured.");
+    case BaudeRate::BR_115200:
+      baud_rate = 115200;
+      *(uint32_t *)(&command_[5]) = Imu3DM_GX3_25::bswap_32(baud_rate);
+      break;
+    case BaudeRate::BR_230400:
+      baud_rate = 230400;
+      *(uint32_t *)(&command_[5]) = Imu3DM_GX3_25::bswap_32(baud_rate);
+      break;
+    case BaudeRate::BR_460800:
+      baud_rate = 460800;
+      *(uint32_t *)(&command_[5]) = Imu3DM_GX3_25::bswap_32(baud_rate);
+      break;
+    case BaudeRate::BR_921600:
+      baud_rate = 921600;
+      *(uint32_t *)(&command_[5]) = Imu3DM_GX3_25::bswap_32(baud_rate);
+      break;    
+    default:
+      throw std::runtime_error(
+        "ImuMsgCommunicationSettings::ImuMsgCommunicationSettings() : "
+        "Baude rate supported by the imu, fix the code or correct baude rate");
+      break;
     }
+    command_[9] = (uint8_t)2; // 2: Selected UART Enabled ; 0: Selected UART Disabled
+    command_[10] = (uint8_t)0; // Reserved: Set to 0
+    reply_.resize(10);
   }
-  bool readingLoop(void);
-  bool stopReadingLoop(void);
-
-  bool receiveAccelAngrate(void);
-  bool receiveStabAccelAngrateMag(void);
-  bool receiveAccelAngrateOrient(void);
-  bool receiveQuat(void);
-
-  bool writeToDevice(int len);
-  bool readFromDevice(uint8_t command, int len);
-  bool readMisalignedMsgFromDevice(uint8_t cmd, int len);
-
-  void printString(const std::string& string);
-  static inline uint16_t bswap_16(uint16_t x);
-  static inline uint32_t bswap_32(uint32_t x);
-  static bool isChecksumCorrect(uint8_t *rep, int rep_len);
-  void lockData(void);
-  void unlockData(void);
-
-private:
-  real_time_tools::RealTimeThread thread_;
-
-  int fd_;
-  ssize_t res_;
-#if __XENO__
-  struct rtser_config rt_config_; // RT
-#else
-  struct termios config_; // non-RT
-#endif
-  fd_set set_;
-  struct timespec timeout_;
-  uint8_t buffer_[100];
-
-  std::string port_;
-  uint8_t *message_type_;
-  int num_messages_;
-  bool stream_data_;
-  bool realtime_;
-  bool stop_imu_comm_;
-  bool timeout_set_;
-  bool debug_timing_;
-  bool calc_orient_;
-  bool calc_quat_;
-  bool is_45_;
-  int dec_rate_;
-
-  real_time_tools::RealTimeThread imu_comm_thread_;
-  rt_mutex mutex_;
-  FILE *logfile_rt_;
-  FILE *logfile_;
-  double delta1_, delta2_, delta3_;
-  static const int max_realign_trials_ = 3;
-
-  double accel_[3];
-  double stab_accel_[3];
-  double angrate_[3];
-  double stab_mag_[3];
-  double orient_mat_[9];
-  double quat_[4];
-  double timestamp_;
 };
 
+} // namespace imu_3DM_GX3_25
 } // namespace imu_core
 #endif // IMU_3DM_GX3_25_HPP

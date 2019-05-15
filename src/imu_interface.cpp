@@ -21,15 +21,23 @@ bool ImuMsg::is_valid()
   return (command_.size() > 0) && (reply_.size() > 0);
 }
 
+std::string ImuMsg::reply_debug_string()
+{
+  return real_time_tools::UsbStream::msg_debug_string(reply_);
+}
+
+std::string ImuMsg::command_debug_string()
+{
+  return real_time_tools::UsbStream::msg_debug_string(command_);
+}
 
 /**
  * Definition of ImuInterface class
  */
 
-ImuInterface::ImuInterface(const std::string port_name, bool stream_data)
+ImuInterface::ImuInterface(const std::string port_name)
 {
   port_name_ = port_name;
-  stream_data_ = stream_data;
 }
 
 }
