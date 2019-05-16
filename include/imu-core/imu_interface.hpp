@@ -9,6 +9,11 @@
 namespace imu_core{
 
 /**
+ * @brief Simple renaming for conveniency.
+ */
+typedef real_time_tools::PortConfig::BaudeRate BaudeRate;
+
+/**
  * @brief This class allow the user to write or read some msg.
  */
 class ImuMsg
@@ -118,6 +123,25 @@ public:
   const Eigen::Ref<Eigen::Vector3d> get_angular_rate()
   {
     return angular_rate_;
+  }
+  /**
+   * @brief Utilities to swap 16 bits
+   * 
+   * @param x 
+   * @return uint16_t 
+   */
+  static inline uint16_t bswap_16(uint16_t x){
+    return (x >> 8) | (x << 8);
+  }
+  /**
+   * @brief Utilities to swap 32 bits
+   * 
+   * @param x 
+   * @return uint16_t 
+   */
+  static inline uint16_t bswap_32(uint16_t x)
+  {
+    return (bswap_16(x & 0xffff) << 16) | (bswap_16(x >> 16));
   }
 
 protected:

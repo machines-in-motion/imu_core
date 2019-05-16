@@ -3,6 +3,7 @@
 */
 
 #include "imu-core/imu_3DM_GX3_25.hpp"
+#include "imu-core/imu_3DM_GX3_25_msg.hpp"
 
 using namespace real_time_tools;
 namespace imu_core{
@@ -49,7 +50,7 @@ bool Imu3DM_GX3_25::initialize()
 
   // setup the IMU configuration
   initialized = initialized && set_communication_settings();
-  initialized = initialized && setSamplingSettings();
+  initialized = initialized && set_sampling_settings();
   initialized = initialized && initTimestamp();
   initialized = initialized && captureGyroBias();
   return true;
@@ -194,7 +195,17 @@ bool Imu3DM_GX3_25::set_communication_settings(void)
 bool Imu3DM_GX3_25::set_sampling_settings(void)
 {
 
-  print_string("Setting sampling settings...\n");
+  rt_printf("Setting sampling settings...\n");
+
+  // send the configuration to the IMU
+  SamplingSettingsMsg sampling_seetings_msg();
+  if (!send_message(comm_msg))
+  {
+    rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
+              "Failed to send the communication settings\n");
+    return false;
+  }
+
 
   // setup sampling config message
   buffer_[0] = CMD_SAMP_SETTINGS;
