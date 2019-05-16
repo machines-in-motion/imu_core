@@ -51,8 +51,8 @@ bool Imu3DM_GX3_25::initialize()
   // setup the IMU configuration
   initialized = initialized && set_communication_settings();
   initialized = initialized && set_sampling_settings();
-  initialized = initialized && initTimestamp();
-  initialized = initialized && captureGyroBias();
+  initialized = initialized && initialize_time_stamp();
+  initialized = initialized && capture_gyro_bias();
   return true;
 }
 
@@ -165,11 +165,11 @@ bool Imu3DM_GX3_25::set_communication_settings(void)
             "Setting communication settings...\n");
 
   // send the configuration to the IMU
-  CommunicationSettingsMsg comm_msg(BaudeRate::BR_921600);
-  if (!send_message(comm_msg))
+  CommunicationSettingsMsg msg(BaudeRate::BR_921600);
+  if (!send_message(msg))
   {
     rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
-              "Failed to send the communication settings\n");
+              "Failed to send the communication settings message \n");
     return false;
   }
 
@@ -179,339 +179,263 @@ bool Imu3DM_GX3_25::set_communication_settings(void)
 
   // Check that the Device received the message.
   bool stream_mode = false; // Poll mode
-  if (!receive_message(comm_msg, stream_mode))
+  if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
-              "Failed to receive the communication settings reply\n");
+              "Failed to receive the communication settings message reply\n");
     return false;
   }
 
   rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Status] "
             "Set communication settings successfully with reply: %s\n",
-            comm_msg.reply_debug_string().c_str());
+            msg.reply_debug_string().c_str());
   return true;
 }
 
 bool Imu3DM_GX3_25::set_sampling_settings(void)
 {
-
-  rt_printf("Setting sampling settings...\n");
+  rt_printf("Imu3DM_GX3_25::set_sampling_settings(): [Status] "
+            "Setting sampling settings...\n");
 
   // send the configuration to the IMU
-  SamplingSettingsMsg sampling_seetings_msg();
-  if (!send_message(comm_msg))
+  SamplingSettingsMsg msg;
+  if (!send_message(msg))
   {
-    rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
-              "Failed to send the communication settings\n");
+    rt_printf("Imu3DM_GX3_25::set_sampling_settings(): [Error] "
+              "Failed to send the sampling settings message\n");
     return false;
   }
 
-
-  // setup sampling config message
-  buffer_[0] = CMD_SAMP_SETTINGS;
-  buffer_[1] = SAMP_SETTINGS_CONF1;
-  buffer_[2] = SAMP_SETTINGS_CONF2;
-  buffer_[3] = 1; // change params to new values
-  buffer_[4] = 0;
-  buffer_[5] = dec_rate_;                // decimation rate
-  uint16_t fselect = 0b0000110100010000; // data conditioning function selector
-  if (calc_orient_)
+  // Check that the Device received the message.
+  bool stream_mode = false; // Poll mode
+  if (!receive_message(msg, stream_mode))
   {
-    if (calc_quat_)
-    {
-      fselect = 0b0001010100010011;
-    }
-    else
-    {
-      fselect = 0b0000010100010011;
-    }
-  }
-  *(uint16_t *)(&buffer_[6]) = bswap_16(fselect);
-  buffer_[8] = 15;
-  buffer_[9] = 17;
-  buffer_[10] = 0;
-  buffer_[11] = 10;
-  buffer_[12] = 0;
-  buffer_[13] = 10;
-  buffer_[14] = 0;
-  buffer_[15] = 0;
-  buffer_[16] = 0;
-  buffer_[17] = 0;
-  buffer_[18] = 0;
-  buffer_[19] = 0;
-
-  if (!writeToDevice(CMD_SAMP_SETTINGS_LEN))
-  {
-    print_string("ERROR >> Failed to set sampling settings\n");
+    rt_printf("Imu3DM_GX3_25::set_sampling_settings(): [Error] "
+              "Failed to receive the sampling settings message reply\n");
     return false;
   }
 
-  if (!readFromDevice(CMD_SAMP_SETTINGS, RPLY_SAMP_SETTINGS_LEN))
-  {
-    print_string("ERROR >> Failed to set sampling settings\n");
-    return false;
-  }
-
-  print_string("Set sampling settings successfully with reply: ");
-#ifdef __XENO__
-  for (int i = 0; i < RPLY_SAMP_SETTINGS_LEN; ++i)
-  {
-    rt_printf("%02x ", buffer_[i]);
-  }
-  rt_printf("\n");
-#else
-  for (int i = 0; i < RPLY_SAMP_SETTINGS_LEN; ++i)
-  {
-    printf("%02x ", buffer_[i]);
-  }
-  printf("\n");
-#endif
-
+  rt_printf("Imu3DM_GX3_25::set_sampling_settings(): [Status] "
+            "Set sampling settings successfully with reply: %s\n",
+            msg.reply_debug_string().c_str());
   return true;
 }
 
-bool Imu3DM_GX3_25::initTimestamp(void)
+bool Imu3DM_GX3_25::initialize_time_stamp(void)
 {
+  rt_printf("Imu3DM_GX3_25::initialize_time_stamp(): [Status] "
+            "Setting time stamp...\n");
 
-  buffer_[0] = CMD_TIMER;
-  buffer_[1] = TIMER_CONF1;
-  buffer_[2] = TIMER_CONF2;
-  buffer_[3] = 1;                           // set new timestamp
-  *(uint32_t *)(&buffer_[4]) = bswap_32(0); // start at 0
-
-  if (!writeToDevice(CMD_TIMER_LEN))
+  // send the configuration to the IMU
+  TimerMsg msg;
+  if (!send_message(msg))
   {
-    print_string("ERROR >> Failed to send initialize timestamp command.\n");
+    rt_printf("Imu3DM_GX3_25::initialize_time_stamp(): [Error] "
+              "Failed to send the time stamp message\n");
     return false;
   }
 
-  if (!readFromDevice(CMD_TIMER, RPLY_TIMER_LEN))
+  // Check that the Device received the message.
+  bool stream_mode = false; // Poll mode
+  if (!receive_message(msg, stream_mode))
   {
-    print_string("ERROR >> Failed to read initialize timestamp command.\n");
+    rt_printf("Imu3DM_GX3_25::initialize_time_stamp(): [Error] "
+              "Failed to receive the time stamp message reply\n");
     return false;
   }
 
+  rt_printf("Imu3DM_GX3_25::initialize_time_stamp(): [Status] "
+            "Set time stamp successfully with reply: %s\n",
+            msg.reply_debug_string().c_str());
   return true;
 }
 
-bool Imu3DM_GX3_25::captureGyroBias(void)
+bool Imu3DM_GX3_25::capture_gyro_bias(void)
 {
+  rt_printf("Imu3DM_GX3_25::capture_gyro_bias(): [Status] "
+            "Setting gyroscope bias...\n");
 
-  uint16_t duration = 3;
-#ifdef __XENO__
-  rt_printf("Capturing gyro bias for %d seconds... ", duration);
-#else
-  printf("Capturing gyro bias for %d seconds... ", duration);
-#endif
-
-  buffer_[0] = CMD_GYRO_BIAS;
-  buffer_[1] = GYRO_BIAS_CONF1;
-  buffer_[2] = GYRO_BIAS_CONF2;
-  *(uint16_t *)(&buffer_[3]) = bswap_16(duration * 1000);
-
-  if (!writeToDevice(CMD_GYRO_BIAS_LEN))
+  // send the configuration to the IMU
+  uint16_t calibration_duration = 3;
+  CaptureGyroBiasMsg msg(calibration_duration);
+  if (!send_message(msg))
   {
-    print_string("ERROR >> Failed to capture gyro bias.\n");
+    rt_printf("Imu3DM_GX3_25::capture_gyro_bias(): [Error] "
+              "Failed to send the gyroscope bias message\n");
     return false;
   }
 
-  if (!readFromDevice(CMD_GYRO_BIAS, RPLY_GYRO_BIAS_LEN))
+  // Check that the Device received the message.
+  bool stream_mode = false; // Poll mode
+  if (!receive_message(msg, stream_mode))
   {
-    print_string("ERROR >> Failed to read gyro bias reply.\n");
+    rt_printf("Imu3DM_GX3_25::capture_gyro_bias(): [Error] "
+              "Failed to receive the gyroscope bias message reply\n");
     return false;
   }
 
-  print_string("done.\n");
+  rt_printf("Imu3DM_GX3_25::capture_gyro_bias(): [Status] "
+            "Set gyroscope bias successfully with reply: %s\n",
+            msg.reply_debug_string().c_str());
   return true;
 }
 
-bool Imu3DM_GX3_25::setTimeout(double timeout)
+bool Imu3DM_GX3_25::start_streaming_data(void)
 {
+  rt_printf("Imu3DM_GX3_25::start_streaming_data(): [Status] "
+            "Setting continuous mode (start streaming data)...\n");
 
-#ifdef __XENO__
-  // Set read timeout
-  rt_config_.config_mask = RTSER_SET_TIMEOUT_RX | RTSER_SET_BAUD;
-  rt_config_.rx_timeout = (nanosecs_rel_t)(timeout * 1000000000); // rx_timeout in ns
-  rt_config_.baud_rate = 921600;
-  res_ = rt_dev_ioctl(fd_, RTSER_RTIOC_SET_CONFIG, &rt_config_);
-  if (res_ != 0)
+  // send the configuration to the IMU
+  StartDataStreamMsg msg;
+  if (!send_message(msg))
   {
-    rt_printf("ERROR >> Failed to set read timeout.\n");
+    rt_printf("Imu3DM_GX3_25::start_streaming_data(): [Error] "
+              "Failed to send the continuous mode (start streaming data) "
+              "message\n");
     return false;
   }
-#else
-  FD_ZERO(&set_);
-  FD_SET(fd_, &set_);
-  timeout_.tv_sec = 0;
-  timeout_.tv_nsec = (long)(timeout * 1000000000);
-#endif
 
+  // Check that the Device received the message.
+  bool stream_mode = false; // Poll mode
+  if (!receive_message(msg, stream_mode))
+  {
+    rt_printf("Imu3DM_GX3_25::start_streaming_data(): [Error] "
+              "Failed to receive the continuous mode (start streaming data) "
+              "message reply\n");
+    return false;
+  }
+
+  rt_printf("Imu3DM_GX3_25::start_streaming_data(): [Status] "
+            "Set continuous mode (start streaming data) successfully with "
+            "reply: %s\n",
+            msg.reply_debug_string().c_str());
   return true;
 }
 
-bool Imu3DM_GX3_25::startStream(void)
+bool Imu3DM_GX3_25::stop_streaming_data(void)
 {
+  rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Status] "
+            "Setting continuous mode (stop streaming data)...\n");
 
-  // put imu in streaming mode
-  buffer_[0] = CMD_CONT_MODE;
-  buffer_[1] = CONT_MODE_CONF1;
-  buffer_[2] = CONT_MODE_CONF2;
-  buffer_[3] = message_type_[0];
-
-  if (!writeToDevice(CMD_CONT_MODE_LEN))
+  // send the configuration to the IMU
+  StopDataStreamMsg msg;
+  if (!send_message(msg))
   {
-    print_string("ERROR >> Failed to start continuous mode.\n");
+    rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
+              "Failed to send the continuous mode (stop streaming data) "
+              "message\n");
     return false;
   }
 
-  if (!readFromDevice(CMD_CONT_MODE, RPLY_CONT_MODE_LEN))
+  // Check that the Device received the message.
+  bool stream_mode = false; // Poll mode
+  if (!receive_message(msg, stream_mode))
   {
-    print_string("ERROR >> Failed to start continuous mode.\n");
+    rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
+              "Failed to receive the continuous mode (stop streaming data) "
+              "message reply\n");
     return false;
   }
 
-#ifdef __XENO__
-  rt_printf("Continuous mode started, streaming command %02x\n", buffer_[1]);
-#else
-  printf("Continuous mode started, streaming command %02x\n", buffer_[1]);
-#endif
-
+  rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Status] "
+            "Set continuous mode (stop streaming data) successfully with "
+            "reply: %s\n",
+            msg.reply_debug_string().c_str());
   return true;
 }
 
-bool Imu3DM_GX3_25::stopStream(void)
+
+bool Imu3DM_GX3_25::reading_loop(void)
 {
-
-  buffer_[0] = CMD_STOP_CONT;
-  buffer_[1] = STOP_CONT_CONF1;
-  buffer_[2] = STOP_CONT_CONF2;
-
-  if (!writeToDevice(CMD_STOP_CONT_LEN))
+  while (!stop_imu_communication_)
   {
-    print_string("ERROR >> Failed to stop continuous mode.\n");
-    return false;
-  }
-
-  return true;
-}
-
-bool Imu3DM_GX3_25::closePort(void)
-{
-
-  if (is_45_)
-  {
-    switchMode(false);
-  }
-
-#ifdef __XENO__
-  res_ = rt_dev_close(fd_);
-#else
-  res_ = close(fd_);
-#endif
-
-  if (res_ != 0)
-  {
-    print_string("ERROR >> Failed to close port.\n");
-    return false;
-  }
-
-  return true;
-}
-
-bool Imu3DM_GX3_25::readingLoop(void)
-{
-
-  // Make this a Xenomai thread and switch to primary mode:
-#ifdef __XENO__
-  int res_ = rt_task_shadow(NULL, imu_comm_xeno_info_.keyword_, imu_comm_xeno_info_.priority_, T_JOINABLE | T_FPU);
-  if (res_ != 0)
-  {
-    rt_printf("ERROR >> Failed to shadow the calling non-RT task.\n");
-    return false;
-  }
-#endif
-
-#if __XENO__
-  if (realtime_)
-  {
-    rt_task_set_mode(0, T_PRIMARY, NULL);
-  }
-  else
-  {
-    rt_task_set_mode(T_PRIMARY, 0, NULL);
-  }
-#endif
-
-  while (!stop_imu_comm_)
-  {
-    for (int i = 0; i < num_messages_; ++i)
-    {
-
-      switch (message_type_[i])
+    // for (int i = 0; i < 1/** num_messages_*/ ; ++i)
+    // {
+      uint8_t data_type = DataType::AccGyro;
+      switch (/**message_type_[i]*/DataType::AccGyro)
       {
-      case CMD_AC_AN:
-        receiveAccelAngrate();
+      case DataType::AccGyro:
+        receive_acc_gyro();
         break;
-      case CMD_STAB_AC_AN_MAG:
-        receiveStabAccelAngrateMag();
+      case DataType::StabAccGyroMagn:
+        receive_stab_acc_gyro_magn();
         break;
-      case CMD_AC_AN_OR:
-        receiveAccelAngrateOrient();
+      case DataType::AccGyroRotMat:
+        receive_acc_gyro_rot_mat();
         break;
-      case CMD_QUAT:
-        receiveQuat();
+      case DataType::Quaternion:
+        receive_quaternion();
         break;
       default:
-#ifdef __XENO__
-        rt_printf("Unknown message of type 0x%02x requested!\n", message_type_[i]);
-#else
-        printf("Unknown message of type 0x%02x requested!\n", message_type_[i]);
-#endif
+        rt_printf("Unknown message of type 0x%02x requested!\n", data_type);
         break;
       }
-    }
+    // }
   }
 
   // return THREAD_FUNCTION_RETURN_VALUE;
 }
 
-bool Imu3DM_GX3_25::stopReadingLoop(void)
+bool Imu3DM_GX3_25::stop_reading_loop(void)
 {
-  lockData();
-  stop_imu_comm_ = true;
-  unlockData();
+  mutex_.lock();
+  stop_imu_communication_ = true;
+  mutex_.unlock();
   thread_.join();
   return true;
 }
 
-bool Imu3DM_GX3_25::receiveAccelAngrate(void)
+bool Imu3DM_GX3_25::receive_acc_gyro(bool stream_data)
 {
+    rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Status] "
+            "Setting continuous mode (stop streaming data)...\n");
 
-#ifdef __XENO__
-  RTIME t1_, t2_, t3_;
-#endif
-
-#ifdef __XENO__
-  if (debug_timing_)
+  // send the configuration to the IMU
+  StopDataStreamMsg msg;
+  if (!send_message(msg))
   {
-    t1_ = rt_timer_read();
+    rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
+              "Failed to send the continuous mode (stop streaming data) "
+              "message\n");
+    return false;
   }
-#endif
 
-  if (stream_data_)
+  // Check that the Device received the message.
+  bool stream_mode = false; // Poll mode
+  if (!receive_message(msg, stream_mode))
   {
-    if (!readFromDevice(CMD_AC_AN, RPLY_AC_AN_LEN))
+    rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
+              "Failed to receive the continuous mode (stop streaming data) "
+              "message reply\n");
+    return false;
+  }
+
+  rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Status] "
+            "Set continuous mode (stop streaming data) successfully with "
+            "reply: %s\n",
+            msg.reply_debug_string().c_str());
+  return true;
+
+
+
+
+  if (stream_data)
+  {
+
+    if (!receive_message(msg, stream_data))
     {
-      print_string("ERROR >> Failed to read streamed message.\n");
+      rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
+                "Failed to receive the continuous mode (stop streaming data) "
+                "message reply\n");
       return false;
     }
-  }
-  else
+  }else
   {
-    buffer_[0] = CMD_AC_AN;
-    if (!writeToDevice(1))
+    if (!send_message(msg))
     {
-      print_string("ERROR >> Failed to send poll for data.\n");
+      rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
+                "Failed to send the continuous mode (stop streaming data) "
+                "message\n");
       return false;
     }
     if (!readFromDevice(CMD_AC_AN, RPLY_AC_AN_LEN))
@@ -561,332 +485,156 @@ bool Imu3DM_GX3_25::receiveAccelAngrate(void)
   return true;
 }
 
-bool Imu3DM_GX3_25::receiveStabAccelAngrateMag(void)
-{
+// bool Imu3DM_GX3_25::receiveStabAccelAngrateMag(void)
+// {
 
-  if (stream_data_)
-  {
-    if (!readFromDevice(CMD_STAB_AC_AN_MAG, RPLY_STAB_AC_AN_MAG_LEN))
-    {
-      print_string("ERROR >> Failed to read streamed message.\n");
-      return false;
-    }
-  }
-  else
-  {
-    buffer_[0] = CMD_STAB_AC_AN_MAG;
-    if (!writeToDevice(1))
-    {
-      print_string("ERROR >> Failed to send poll for data.\n");
-      return false;
-    }
-    if (!readFromDevice(CMD_STAB_AC_AN_MAG, RPLY_STAB_AC_AN_MAG_LEN))
-    {
-      print_string("WARNING >> Failed to read polled message, skipping.\n");
-      return false;
-    }
-  }
+//   if (stream_data_)
+//   {
+//     if (!readFromDevice(CMD_STAB_AC_AN_MAG, RPLY_STAB_AC_AN_MAG_LEN))
+//     {
+//       print_string("ERROR >> Failed to read streamed message.\n");
+//       return false;
+//     }
+//   }
+//   else
+//   {
+//     buffer_[0] = CMD_STAB_AC_AN_MAG;
+//     if (!writeToDevice(1))
+//     {
+//       print_string("ERROR >> Failed to send poll for data.\n");
+//       return false;
+//     }
+//     if (!readFromDevice(CMD_STAB_AC_AN_MAG, RPLY_STAB_AC_AN_MAG_LEN))
+//     {
+//       print_string("WARNING >> Failed to read polled message, skipping.\n");
+//       return false;
+//     }
+//   }
 
-  lockData();
+//   lockData();
 
-  float tmp[3];
-  memcpy(tmp, &(buffer_[1]), 3 * sizeof(float));
-  for (int i = 0; i < 3; ++i)
-  {
-    stab_accel_[i] = tmp[i];
-  }
+//   float tmp[3];
+//   memcpy(tmp, &(buffer_[1]), 3 * sizeof(float));
+//   for (int i = 0; i < 3; ++i)
+//   {
+//     stab_accel_[i] = tmp[i];
+//   }
 
-  memcpy(tmp, &(buffer_[13]), 3 * sizeof(float));
-  for (int i = 0; i < 3; ++i)
-  {
-    angrate_[i] = tmp[i];
-  }
+//   memcpy(tmp, &(buffer_[13]), 3 * sizeof(float));
+//   for (int i = 0; i < 3; ++i)
+//   {
+//     angrate_[i] = tmp[i];
+//   }
 
-  memcpy(tmp, &(buffer_[25]), 3 * sizeof(float));
-  for (int i = 0; i < 3; ++i)
-  {
-    stab_mag_[i] = tmp[i];
-  }
+//   memcpy(tmp, &(buffer_[25]), 3 * sizeof(float));
+//   for (int i = 0; i < 3; ++i)
+//   {
+//     stab_mag_[i] = tmp[i];
+//   }
 
-  timestamp_ = ((buffer_[37] << 24) | (buffer_[38] << 16) | (buffer_[39] << 8) | (buffer_[40])) / 62500.0;
+//   timestamp_ = ((buffer_[37] << 24) | (buffer_[38] << 16) | (buffer_[39] << 8) | (buffer_[40])) / 62500.0;
 
-  unlockData();
+//   unlockData();
 
-  return true;
-}
+//   return true;
+// }
 
-bool Imu3DM_GX3_25::receiveAccelAngrateOrient(void)
-{
+// bool Imu3DM_GX3_25::receiveAccelAngrateOrient(void)
+// {
 
-  if (stream_data_)
-  {
-    if (!readFromDevice(CMD_AC_AN_OR, RPLY_AC_AN_OR_LEN))
-    {
-      print_string("ERROR >> Failed to read streamed message.\n");
-      return false;
-    }
-  }
-  else
-  {
-    buffer_[0] = CMD_AC_AN_OR;
-    if (!writeToDevice(1))
-    {
-      print_string("ERROR >> Failed to send poll for data.\n");
-      return false;
-    }
-    if (!readFromDevice(CMD_AC_AN_OR, RPLY_AC_AN_OR_LEN))
-    {
-      print_string("WARNING >> Failed to read polled message, skipping.\n");
-      return false;
-    }
-  }
+//   if (stream_data_)
+//   {
+//     if (!readFromDevice(CMD_AC_AN_OR, RPLY_AC_AN_OR_LEN))
+//     {
+//       print_string("ERROR >> Failed to read streamed message.\n");
+//       return false;
+//     }
+//   }
+//   else
+//   {
+//     buffer_[0] = CMD_AC_AN_OR;
+//     if (!writeToDevice(1))
+//     {
+//       print_string("ERROR >> Failed to send poll for data.\n");
+//       return false;
+//     }
+//     if (!readFromDevice(CMD_AC_AN_OR, RPLY_AC_AN_OR_LEN))
+//     {
+//       print_string("WARNING >> Failed to read polled message, skipping.\n");
+//       return false;
+//     }
+//   }
 
-  lockData();
+//   lockData();
 
-  float tmp[3];
-  memcpy(tmp, &(buffer_[1]), 3 * sizeof(float));
-  for (int i = 0; i < 3; ++i)
-  {
-    stab_accel_[i] = tmp[i];
-  }
+//   float tmp[3];
+//   memcpy(tmp, &(buffer_[1]), 3 * sizeof(float));
+//   for (int i = 0; i < 3; ++i)
+//   {
+//     stab_accel_[i] = tmp[i];
+//   }
 
-  memcpy(tmp, &(buffer_[13]), 3 * sizeof(float));
-  for (int i = 0; i < 3; ++i)
-  {
-    angrate_[i] = tmp[i];
-  }
+//   memcpy(tmp, &(buffer_[13]), 3 * sizeof(float));
+//   for (int i = 0; i < 3; ++i)
+//   {
+//     angrate_[i] = tmp[i];
+//   }
 
-  float tmp_mat[9];
-  memcpy(tmp_mat, &(buffer_[25]), 9 * sizeof(float));
-  for (int i = 0; i < 9; ++i)
-  {
-    orient_mat_[i] = tmp_mat[i];
-  }
+//   float tmp_mat[9];
+//   memcpy(tmp_mat, &(buffer_[25]), 9 * sizeof(float));
+//   for (int i = 0; i < 9; ++i)
+//   {
+//     orient_mat_[i] = tmp_mat[i];
+//   }
 
-  timestamp_ = ((buffer_[61] << 24) | (buffer_[62] << 16) | (buffer_[63] << 8) | (buffer_[64])) / 62500.0;
+//   timestamp_ = ((buffer_[61] << 24) | (buffer_[62] << 16) | (buffer_[63] << 8) | (buffer_[64])) / 62500.0;
 
-  unlockData();
+//   unlockData();
 
-  return true;
-}
+//   return true;
+// }
 
-bool Imu3DM_GX3_25::receiveQuat(void)
-{
+// bool Imu3DM_GX3_25::receiveQuat(void)
+// {
 
-  if (stream_data_)
-  {
-    if (!readFromDevice(CMD_QUAT, RPLY_QUAT_LEN))
-    {
-      print_string("ERROR >> Failed to read streamed message.\n");
-      return false;
-    }
-  }
-  else
-  {
-    buffer_[0] = CMD_QUAT;
-    if (!writeToDevice(1))
-    {
-      print_string("ERROR >> Failed to send poll for data.\n");
-      return false;
-    }
-    if (!readFromDevice(CMD_QUAT, RPLY_QUAT_LEN))
-    {
-      print_string("WARNING >> Failed to read polled message, skipping.\n");
-      return false;
-    }
-  }
+//   if (stream_data_)
+//   {
+//     if (!readFromDevice(CMD_QUAT, RPLY_QUAT_LEN))
+//     {
+//       print_string("ERROR >> Failed to read streamed message.\n");
+//       return false;
+//     }
+//   }
+//   else
+//   {
+//     buffer_[0] = CMD_QUAT;
+//     if (!writeToDevice(1))
+//     {
+//       print_string("ERROR >> Failed to send poll for data.\n");
+//       return false;
+//     }
+//     if (!readFromDevice(CMD_QUAT, RPLY_QUAT_LEN))
+//     {
+//       print_string("WARNING >> Failed to read polled message, skipping.\n");
+//       return false;
+//     }
+//   }
 
-  lockData();
+//   lockData();
 
-  float tmp[4];
-  memcpy(tmp, &(buffer_[1]), 4 * sizeof(float));
-  for (int i = 0; i < 4; ++i)
-  {
-    quat_[i] = tmp[i];
-  }
+//   float tmp[4];
+//   memcpy(tmp, &(buffer_[1]), 4 * sizeof(float));
+//   for (int i = 0; i < 4; ++i)
+//   {
+//     quat_[i] = tmp[i];
+//   }
 
-  timestamp_ = ((buffer_[17] << 24) | (buffer_[18] << 16) | (buffer_[19] << 8) | (buffer_[20])) / 62500.0;
+//   timestamp_ = ((buffer_[17] << 24) | (buffer_[18] << 16) | (buffer_[19] << 8) | (buffer_[20])) / 62500.0;
 
-  unlockData();
+//   unlockData();
 
-  return true;
-}
-
-bool Imu3DM_GX3_25::readAccelAngrate(double *accel, double *angrate, double &timestamp)
-{
-
-  lockData();
-
-  memcpy(accel, accel_, 3 * sizeof(double));
-  memcpy(angrate, angrate_, 3 * sizeof(double));
-  timestamp = timestamp_;
-
-  unlockData();
-
-  return true;
-}
-
-bool Imu3DM_GX3_25::readStabAccelAngrateMag(double *stab_accel, double *angrate, double *stab_mag, double &timestamp)
-{
-
-  lockData();
-
-  memcpy(stab_accel, stab_accel_, 3 * sizeof(double));
-  memcpy(angrate, angrate_, 3 * sizeof(double));
-  memcpy(stab_mag, stab_mag_, 3 * sizeof(double));
-  timestamp = timestamp_;
-
-  unlockData();
-
-  return true;
-}
-
-bool Imu3DM_GX3_25::readQuat(double *quat, double &timestamp)
-{
-
-  lockData();
-
-  memcpy(quat, quat_, 4 * sizeof(double));
-  timestamp = timestamp_;
-
-  unlockData();
-
-  return true;
-}
-
-// AUXILIARY FUNCTIONS:
-
-void Imu3DM_GX3_25::print_string(const std::string& string)
-{
-  rt_printf("%s", string.c_str());
-}
-
-void Imu3DM_GX3_25::lockData(void)
-{
-  rt_mutex_lock(&mutex_);
-}
-
-void Imu3DM_GX3_25::unlockData(void)
-{
-  rt_mutex_unlock(&mutex_);
-}
-
-bool Imu3DM_GX3_25::writeToDevice(int len)
-{
-
-#ifdef __XENO__
-  res_ = rt_dev_write(fd_, buffer_, len);
-#else
-  res_ = write(fd_, buffer_, len);
-#endif
-
-  if (res_ < 0)
-  {
-    char *error_code = strerror(-res_);
-    printf("ERROR >> Writing to device failed with error: %s\n", error_code);
-    return false;
-  }
-  else if (res_ != len)
-  {
-    printf("ERROR >> Failed writing requested amount of %d bytes\n", len);
-    return false;
-  }
-
-  return true;
-}
-
-bool Imu3DM_GX3_25::readFromDevice(uint8_t command, int len)
-{
-
-#ifdef __XENO__
-  res_ = rt_dev_read(fd_, buffer_, len);
-#else
-  if (!stream_data_ && timeout_set_)
-  {
-    res_ = pselect(fd_ + 1, &set_, NULL, NULL, &timeout_, NULL);
-    if (res_ == -1)
-    {
-      printf("ERROR >> Select error occurred!");
-      return false;
-    }
-    else if (res_ == 0)
-    {
-      printf("WARNING >> Timeout reached when reading command 0x%02x.\n", command);
-      return false;
-    }
-    else
-    {
-      res_ = read(fd_, buffer_, len);
-    }
-  }
-  else
-  {
-    res_ = read(fd_, buffer_, len); // when streaming, no read timeout
-  }
-#endif
-
-  if (res_ < 0)
-  {
-    char *error_code = strerror(-res_);
-    if (strcmp(error_code, "Connection timed out") == 0)
-    {
-      rt_printf("WARNING >> Timeout reached when reading command 0x%02x.\n", command);
-    }
-    else
-    {
-      rt_printf("ERROR >> Reading from device failed with error: %s\n", error_code);
-    }
-    return false;
-  }
-  else if (res_ != len)
-  {
-    rt_printf("ERROR >> Reading from device failed. Requested %d bytes and received %ld bytes: ", len, res_);
-    for (int i = 0; i < res_; ++i)
-    {
-      rt_printf("%02x ", buffer_[i]);
-    }
-    rt_printf("\n");
-    return false;
-  }
-
-  return true;
-}
-
-
-
-// NOT CURRENTLY USED:
-
-
-/////////////// C interface //////////
-Imu3DM_GX3_25 myIMU("ttyACM0", true, false, false);
-extern "C"
-{
-  int initialize_imu_interface(uint8_t *message_type, int num_messages);
-  int read_accel_angrate(double *accel, double *angrate, double timestamp);
-} // extern "C"
-int initialize_imu_interface(uint8_t *message_type, int num_messages)
-{
-  if (myIMU.initialize(message_type, num_messages))
-  {
-    return 1;
-  }
-  else
-  {
-    return 0;
-  }
-}
-
-int read_accel_angrate(double *accel, double *angrate, double timestamp)
-{
-  if (myIMU.readAccelAngrate(accel, angrate, timestamp))
-  {
-    return 1;
-  }
-  else
-  {
-    return 0;
-  }
-}
+//   return true;
+// }
 
 } // namespace imu_3DM_GX3_25
 } // namespace imu_core

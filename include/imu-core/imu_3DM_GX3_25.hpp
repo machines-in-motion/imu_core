@@ -125,6 +125,22 @@ public:
   bool capture_gyro_bias(void);
   
   /**
+   * @brief Send the message to the IMU to start streaming data
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool start_streaming_data(void);
+
+  /**
+   * @brief Send the message to the IMU to stop streaming data
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool stop_streaming_data(void);
+
+  /**
    * @brief This helper function allows us to start the thread.
    * 
    * @param object is the current IMU object
@@ -159,6 +175,40 @@ public:
    */
   bool stop_reading_loop(void);
 
+  /**
+   * @brief Parse the accelerometer and gyroscope from the message
+   * 
+   * @return true 
+   * @return false 
+   */
+  bool receive_acc_gyro(bool stream_data);
+
+  /**
+   * @brief Parse the stabilized accelerometer, gyroscope and magnetometer
+   * from the message
+   * 
+   * @return true 
+   * @return false 
+   */
+  bool receive_stab_acc_gyro_magn(bool stream_data){}
+
+  /**
+   * @brief Parse the accelerometer, gyroscope and rotation matrix from the
+   * message
+   * 
+   * @return true 
+   * @return false 
+   */
+  bool receive_acc_gyro_rot_mat(bool stream_data){}
+
+  /**
+   * @brief Parse the quaternion from the message
+   * 
+   * @return true 
+   * @return false 
+   */
+  bool receive_quaternion(bool stream_data){}
+
 private:
   /**
    * @brief Create a real time thread.
@@ -188,6 +238,10 @@ private:
    * @brief Get the data time stamp
    */
   double time_stamp_;
+  /**
+   * @brief Manage the thread.
+   */
+  bool stop_imu_communication_;
 };
 
 } // namespace imu_3DM_GX3_25

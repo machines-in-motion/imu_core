@@ -55,35 +55,6 @@ public:
 };
 
 /**
- * @brief This enum define the data streamed by the IMU upon setting the
- * continuous mode. Not used yet.
- */
-enum ImuMsgTypes{
-  /**
-   * @brief The IMU broadcasts the acceleration and the angular rate.
-   * This is the strongly recommanded interface.
-   */
-  Acceleration_AngularRate = 0,
-  /**
-   * @brief The IMU broadcasts the stabilized acceleration, the angular rate
-   * and the magnetometer measurement.
-   */
-  StabilizedAcceleration_AngularRate_Magnetometer,
-  /**
-   * @brief The IMU broadcasts the acceleration, the angular rate and the
-   * rotation matrix. The orientation is computed using an Extended Kalman
-   * Filter integrated in the hardware. (Not recommanded).
-   */
-  Acceleration_AngularRate_OrientationMatrix,
-  /**
-   * @brief The IMU broadcasts the quaternion representation the IMU attitude
-   * through the computation an Extended Kalman Filter integrated in the
-   * hardware. (Not recommanded).
-   */
-  Quaternion
-};
-
-/**
  * @brief This interface propose an easy acces to the IMU data though Eigen.
  */
 class ImuInterface {
