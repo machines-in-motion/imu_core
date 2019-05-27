@@ -5,6 +5,7 @@
 #include <sstream>
 #include <vector>
 #include <Eigen/Eigen>
+#include "real_time_tools/usb_stream.hpp"
 
 namespace imu_core{
 
@@ -69,7 +70,7 @@ public:
   /**
    * @brief Destroy the ImuInterface object
    */
-  virtual ~ImuInterface(void);
+  virtual ~ImuInterface(void){}
   /**
    * @brief Initialization method that will depend on each IMU.
    * 
@@ -77,6 +78,7 @@ public:
    * @return false is failure.
    */
   virtual bool initialize() = 0;
+
   /**
    * @brief Get the acceleration_ object
    * 
@@ -101,18 +103,18 @@ public:
    * @param x 
    * @return uint16_t 
    */
-  static inline uint16_t bswap_16(uint16_t x){
-    return (x >> 8) | (x << 8);
+  static inline uint16_t bswap_16(uint16_t x) {
+    return (x>>8) | (x<<8);
   }
+  
   /**
    * @brief Utilities to swap 32 bits
    * 
    * @param x 
-   * @return uint16_t 
+   * @return uint32_t 
    */
-  static inline uint16_t bswap_32(uint16_t x)
-  {
-    return (bswap_16(x & 0xffff) << 16) | (bswap_16(x >> 16));
+  static inline uint32_t bswap_32(uint32_t x) {
+    return (bswap_16(x&0xffff)<<16) | (bswap_16(x>>16));
   }
 
 protected:

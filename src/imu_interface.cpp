@@ -37,7 +37,9 @@ std::string ImuMsg::command_debug_string()
 
 ImuInterface::ImuInterface(const std::string port_name)
 {
+  acceleration_.setZero();
+  angular_rate_.setZero();
   port_name_ = port_name;
 }
 
-}
+} // namespace

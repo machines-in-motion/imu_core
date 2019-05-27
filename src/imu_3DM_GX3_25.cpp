@@ -3,13 +3,13 @@
 */
 
 #include "imu-core/imu_3DM_GX3_25.hpp"
-#include "imu-core/imu_3DM_GX3_25_msg.hpp"
 
 using namespace real_time_tools;
 namespace imu_core{
 namespace imu_3DM_GX3_25{
 
-Imu3DM_GX3_25::Imu3DM_GX3_25(const std::string& port_name):
+Imu3DM_GX3_25::Imu3DM_GX3_25(const std::string& port_name,
+                             const bool& stream_data):
   ImuInterface(port_name)
 {
   /** Nothing to be done for these attributes
@@ -21,17 +21,17 @@ Imu3DM_GX3_25::Imu3DM_GX3_25(const std::string& port_name):
   max_realign_trials_ = 3;
   timer_.set_memory_size(100000); // 100 seconds at 1ms/iteration
   time_stamp_ = 0.0;
+  stream_data_ = stream_data;
 }
 
 Imu3DM_GX3_25::~Imu3DM_GX3_25(void)
 {
-  // stopReadingLoop();
-  // if (stream_data_)
-  // {
-  //   stopStream();
-  // }
-  // closePort();
-  // rt_mutex_destroy(&mutex_);
+  stop_reading_loop();
+  if (stream_data_)
+  {
+    stop_streaming_data();
+  }
+  usb_stream_.close_device();
 }
 
 bool Imu3DM_GX3_25::initialize()
@@ -46,13 +46,28 @@ bool Imu3DM_GX3_25::initialize()
   port_config_.data_bits_ = real_time_tools::PortConfig::cs8;
   port_config_.baude_rate_ = real_time_tools::PortConfig::BR_115200;
   usb_stream_.set_port_config(port_config_);
-  usb_stream_.set_poll_mode_timeout(0.005);
+  usb_stream_.set_poll_mode_timeout(0.100);
 
   // setup the IMU configuration
-  initialized = initialized && set_communication_settings();
-  initialized = initialized && set_sampling_settings();
-  initialized = initialized && initialize_time_stamp();
-  initialized = initialized && capture_gyro_bias();
+  int retry = 0;
+  int max_retry = 3;
+  do{
+    initialized = initialized && reset_device();
+    initialized = initialized && set_communication_settings();
+    initialized = initialized && set_sampling_settings();
+    initialized = initialized && initialize_time_stamp();
+    initialized = initialized && capture_gyro_bias();
+    if(stream_data_)
+    {
+      initialized = initialized && start_streaming_data();
+    }
+    ++retry;
+  }while(!initialized && retry < max_retry);
+
+  if(initialized)
+  {
+    thread_.create_realtime_thread(Imu3DM_GX3_25::reading_loop_helper, this);
+  }
   return true;
 }
 
@@ -83,6 +98,7 @@ bool Imu3DM_GX3_25::receive_message(ImuMsg& msg, bool stream_mode)
               "Received unexpected message from device.\n");
     return false;
   }
+  return true;
 }
 
 bool Imu3DM_GX3_25::is_checksum_correct(const ImuMsg& msg)
@@ -159,35 +175,69 @@ bool Imu3DM_GX3_25::read_misaligned_msg_from_device(ImuMsg& msg)
   return true;
 }
 
+bool Imu3DM_GX3_25::reset_device(void)
+{
+  rt_printf("Imu3DM_GX3_25::reset_device(): [Status] "
+            "reset the device...\n");
+
+  // send the configuration to the IMU
+  ResetMsg msg;
+  if (!send_message(msg))
+  {
+    rt_printf("Imu3DM_GX3_25::reset_device(): [Error] "
+              "Failed to send the reset the device message\n");
+    return false;
+  }
+
+  rt_printf("Imu3DM_GX3_25::reset_device(): [Status] "
+            "reset the device successfully\n");
+
+  return true;
+}
+
+
 bool Imu3DM_GX3_25::set_communication_settings(void)
 {
   rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Status] "
             "Setting communication settings...\n");
 
   // send the configuration to the IMU
-  CommunicationSettingsMsg msg(BaudeRate::BR_921600);
+  CommunicationSettingsMsg msg(BaudeRate::BR_115200);
   if (!send_message(msg))
   {
     rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
-              "Failed to send the communication settings message \n");
+              "Failed to send the communication settings message \n"
+              "cmd: %s\nreply: %s\n", msg.command_debug_string().c_str(),
+              msg.reply_debug_string().c_str());
+    return false;
+  }
+
+  // Check that the Device received the message.
+  bool stream_mode = true; // Poll mode
+  if (!receive_message(msg, stream_mode))
+  {
+    rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
+              "Failed to receive the communication settings message reply.\n"
+              "cmd: %s\nreply: %s\n", msg.command_debug_string().c_str(),
+              msg.reply_debug_string().c_str());
     return false;
   }
 
   // reset the computer port Baude Rate
-  port_config_.baude_rate_ = BaudeRate::BR_921600;
+  port_config_.baude_rate_ = BaudeRate::BR_115200;
   usb_stream_.set_port_config(port_config_);
 
-  // Check that the Device received the message.
-  bool stream_mode = false; // Poll mode
-  if (!receive_message(msg, stream_mode))
-  {
-    rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
-              "Failed to receive the communication settings message reply\n");
-    return false;
-  }
+  uint8_t baude_rate_unit8[4];
+  baude_rate_unit8[0] = msg.reply_[2];
+  baude_rate_unit8[1] = msg.reply_[3];
+  baude_rate_unit8[2] = msg.reply_[4];
+  baude_rate_unit8[3] = msg.reply_[5];
+  uint32_t baude_rate = ImuInterface::bswap_32(*(uint32_t*)baude_rate_unit8);
+  assert(baude_rate == 115200);
 
   rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Status] "
-            "Set communication settings successfully with reply: %s\n",
+            "Set communication settings successfully.\n"
+            "cmd: %s\nreply: %s\n", msg.command_debug_string().c_str(),
             msg.reply_debug_string().c_str());
   return true;
 }
@@ -207,11 +257,13 @@ bool Imu3DM_GX3_25::set_sampling_settings(void)
   }
 
   // Check that the Device received the message.
-  bool stream_mode = false; // Poll mode
+  bool stream_mode = true; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::set_sampling_settings(): [Error] "
-              "Failed to receive the sampling settings message reply\n");
+              "Failed to receive the sampling settings message reply. "
+              "Command: %s, Reply %s\n",msg.command_debug_string().c_str(),
+              msg.reply_debug_string().c_str());
     return false;
   }
 
@@ -236,7 +288,7 @@ bool Imu3DM_GX3_25::initialize_time_stamp(void)
   }
 
   // Check that the Device received the message.
-  bool stream_mode = false; // Poll mode
+  bool stream_mode = true; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::initialize_time_stamp(): [Error] "
@@ -266,7 +318,7 @@ bool Imu3DM_GX3_25::capture_gyro_bias(void)
   }
 
   // Check that the Device received the message.
-  bool stream_mode = false; // Poll mode
+  bool stream_mode = true; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::capture_gyro_bias(): [Error] "
@@ -296,7 +348,7 @@ bool Imu3DM_GX3_25::start_streaming_data(void)
   }
 
   // Check that the Device received the message.
-  bool stream_mode = false; // Poll mode
+  bool stream_mode = true; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::start_streaming_data(): [Error] "
@@ -328,7 +380,7 @@ bool Imu3DM_GX3_25::stop_streaming_data(void)
   }
 
   // Check that the Device received the message.
-  bool stream_mode = false; // Poll mode
+  bool stream_mode = true; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
@@ -347,7 +399,8 @@ bool Imu3DM_GX3_25::stop_streaming_data(void)
 
 bool Imu3DM_GX3_25::reading_loop(void)
 {
-  while (!stop_imu_communication_)
+  bool ret = false;
+  while (!stop_imu_communication_ && ret)
   {
     // for (int i = 0; i < 1/** num_messages_*/ ; ++i)
     // {
@@ -355,25 +408,26 @@ bool Imu3DM_GX3_25::reading_loop(void)
       switch (/**message_type_[i]*/DataType::AccGyro)
       {
       case DataType::AccGyro:
-        receive_acc_gyro();
+        ret = receive_acc_gyro(stream_data_);
         break;
       case DataType::StabAccGyroMagn:
-        receive_stab_acc_gyro_magn();
+        ret = receive_stab_acc_gyro_magn(stream_data_);
         break;
       case DataType::AccGyroRotMat:
-        receive_acc_gyro_rot_mat();
+        ret = receive_acc_gyro_rot_mat(stream_data_);
         break;
       case DataType::Quaternion:
-        receive_quaternion();
+        ret = receive_quaternion(stream_data_);
         break;
       default:
         rt_printf("Unknown message of type 0x%02x requested!\n", data_type);
+        ret = false;
         break;
       }
     // }
   }
 
-  // return THREAD_FUNCTION_RETURN_VALUE;
+  return ret;
 }
 
 bool Imu3DM_GX3_25::stop_reading_loop(void)
@@ -387,22 +441,22 @@ bool Imu3DM_GX3_25::stop_reading_loop(void)
 
 bool Imu3DM_GX3_25::receive_acc_gyro(bool stream_data)
 {
-    rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Status] "
-            "Setting continuous mode (stop streaming data)...\n");
-
-  // send the configuration to the IMU
-  StopDataStreamMsg msg;
-  if (!send_message(msg))
+    // rt_printf("Imu3DM_GX3_25::receive_acc_gyro(): [Status] "
+    //         "Setting continuous mode (stop streaming data)...\n");
+  if(!stream_data)
   {
-    rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
-              "Failed to send the continuous mode (stop streaming data) "
-              "message\n");
-    return false;
+    // send the command to the IMU
+    if (!send_message(acc_gyro_msg_))
+    {
+      rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
+                "Failed to send the continuous mode (stop streaming data) "
+                "message\n");
+      return false;
+    }
   }
 
   // Check that the Device received the message.
-  bool stream_mode = false; // Poll mode
-  if (!receive_message(msg, stream_mode))
+  if (!receive_message(acc_gyro_msg_, stream_data))
   {
     rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
               "Failed to receive the continuous mode (stop streaming data) "
@@ -410,77 +464,49 @@ bool Imu3DM_GX3_25::receive_acc_gyro(bool stream_data)
     return false;
   }
 
-  rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Status] "
-            "Set continuous mode (stop streaming data) successfully with "
-            "reply: %s\n",
-            msg.reply_debug_string().c_str());
-  return true;
+// #ifdef __XENO__
+//   if (debug_timing_)
+//   {
+//     t2_ = rt_timer_read();
+//   }
+// #endif
 
-
-
-
-  if (stream_data)
-  {
-
-    if (!receive_message(msg, stream_data))
-    {
-      rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
-                "Failed to receive the continuous mode (stop streaming data) "
-                "message reply\n");
-      return false;
-    }
-  }else
-  {
-    if (!send_message(msg))
-    {
-      rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
-                "Failed to send the continuous mode (stop streaming data) "
-                "message\n");
-      return false;
-    }
-    if (!readFromDevice(CMD_AC_AN, RPLY_AC_AN_LEN))
-    {
-      print_string("WARNING >> Failed to read polled message, skipping.\n");
-      return false;
-    }
-  }
-
-#ifdef __XENO__
-  if (debug_timing_)
-  {
-    t2_ = rt_timer_read();
-  }
-#endif
-
-  lockData();
+  mutex_.lock();
 
   float tmp[3];
-  memcpy(tmp, &(buffer_[1]), 3 * sizeof(float));
+  memcpy(tmp, &(acc_gyro_msg_.reply_[1]), 3 * sizeof(float));
   for (int i = 0; i < 3; ++i)
   {
-    accel_[i] = tmp[i];
+    acceleration_[i] = tmp[i];
   }
-
-  memcpy(tmp, &(buffer_[13]), 3 * sizeof(float));
+  memcpy(tmp, &(acc_gyro_msg_.reply_[13]), 3 * sizeof(float));
   for (int i = 0; i < 3; ++i)
   {
-    angrate_[i] = tmp[i];
+    angular_rate_[i] = tmp[i];
   }
+  time_stamp_ = ((acc_gyro_msg_.reply_[25] << 24) |
+                 (acc_gyro_msg_.reply_[26] << 16) |
+                 (acc_gyro_msg_.reply_[27] << 8)  |
+                 (acc_gyro_msg_.reply_[28])) / 62500.0;
 
-  timestamp_ = ((buffer_[25] << 24) | (buffer_[26] << 16) | (buffer_[27] << 8) | (buffer_[28])) / 62500.0;
+  mutex_.unlock();
 
-  unlockData();
+// #ifdef __XENO__
+//   if (debug_timing_)
+//   {
+//     delta1_ = (t1_ - t3_) / 1000000.0;
+//     t3_ = rt_timer_read();
+//     delta2_ = (t2_ - t1_) / 1000000.0;
+//     delta3_ = (t3_ - t2_) / 1000000.0;
+//     rt_fprintf(logfile_, "%f %f %f %f\n", delta1_, delta2_, delta3_, timestamp_);
+//   }
+// #endif
 
-#ifdef __XENO__
-  if (debug_timing_)
-  {
-    delta1_ = (t1_ - t3_) / 1000000.0;
-    t3_ = rt_timer_read();
-    delta2_ = (t2_ - t1_) / 1000000.0;
-    delta3_ = (t3_ - t2_) / 1000000.0;
-    rt_fprintf(logfile_, "%f %f %f %f\n", delta1_, delta2_, delta3_, timestamp_);
-  }
-#endif
+
+  // rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Status] "
+  //           "Set continuous mode (stop streaming data) successfully with "
+  //           "reply: %s\n",
+  //           msg.reply_debug_string().c_str());
 
   return true;
 }

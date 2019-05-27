@@ -50,10 +50,9 @@ catkin_package(
 ###########################
 # create the main library #
 ###########################
-set(src_directory ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(SRCS_IMU
-  ${src_directory}/imu_3DM_GX3_25.cpp
-  # ${src_directory}/imu_getter.cpp
+  src/imu_3DM_GX3_25.cpp
+  src/imu_interface.cpp
 )
 add_library(imu-core ${SRCS_IMU})
 target_link_libraries(imu-core ${catkin_LIBRARIES} ${Boost_LIBRARIES})

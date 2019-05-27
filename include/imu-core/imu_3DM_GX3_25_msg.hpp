@@ -108,7 +108,11 @@ public:
     }
     command_[9] = (uint8_t)2; // 2: Selected UART Enabled ; 0: Selected UART Disabled
     command_[10] = (uint8_t)0; // Reserved: Set to 0
-    reply_.resize(10);
+
+    /**
+     * Reply
+     */
+    reply_.resize(10, 0);
   }
 };
 
@@ -242,9 +246,9 @@ public:
     command_[19] = 0;
 
     /**
-     * Reply is of size 19
+     * Reply
      */
-    reply_.resize(19);
+    reply_.resize(19, 0);
   }
 };
 
@@ -280,9 +284,9 @@ public:
     *(uint32_t *)(&command_[4]) = ImuInterface::bswap_32(0); // start at 0
 
     /**
-     * Reply is of size 19
+     * Reply
      */
-    reply_.resize(7);
+    reply_.resize(7, 0);
   }
 };
 
@@ -317,37 +321,6 @@ public:
   }
 };
 
-
-/**
- * @brief This enum defines the data streamed by the IMU upon setting the
- * continuous mode. Not used yet.
- */
-enum ImuMsgTypes{
-  /**
-   * @brief The IMU broadcasts the acceleration and the angular rate.
-   * This is the strongly recommanded interface.
-   */
-  Acceleration_AngularRate = 0,
-  /**
-   * @brief The IMU broadcasts the stabilized acceleration, the angular rate
-   * and the magnetometer measurement.
-   */
-  StabilizedAcceleration_AngularRate_Magnetometer,
-  /**
-   * @brief The IMU broadcasts the acceleration, the angular rate and the
-   * rotation matrix. The orientation is computed using an Extended Kalman
-   * Filter integrated in the hardware. (Not recommanded).
-   */
-  Acceleration_AngularRate_OrientationMatrix,
-  /**
-   * @brief The IMU broadcasts the quaternion representation the IMU attitude
-   * through the computation an Extended Kalman Filter integrated in the
-   * hardware. (Not recommanded).
-   */
-  Quaternion
-};
-
-
 /**
  * @brief This class allows us to ask for the data steam to start.
  */
@@ -375,6 +348,9 @@ public:
     command_[2] = 0x29 ; // user confirmation 2
     command_[3] = DataType::AccGyro;
 
+    /**
+     * Reply
+     */
     reply_.resize(8);
   }
 };
@@ -398,6 +374,9 @@ public:
       command_[1] = 0xc1 ; // user confirmation 1
       command_[2] = 0x29 ; // user confirmation 2
       command_[3] = 0; // here we deactivate the continuous mode with this 0
+      /**
+       * Reply
+       */
       reply_.resize(8);
     }else // use the stop continuous mode message (No reply)
     {
@@ -406,8 +385,31 @@ public:
       command_[0] = 0xfa ; // header
       command_[1] = 0x75 ; // user confirmation 1
       command_[2] = 0xb4 ; // user confirmation 2
+      /**
+       * No reply
+       */
       reply_.clear();
     }
+  }
+};
+
+/**
+ * @brief Message requesting the soft reset of the imu.
+ */
+class ResetMsg: public ImuMsg
+{
+public:
+  ResetMsg(): ImuMsg()
+  {
+    // Acceleration and angular rate:
+    command_.resize(3);
+    command_[0] = 0xfa;
+    command_[0] = 0x75;
+    command_[0] = 0xb4;
+    /**
+     * No reply
+     */
+    reply_.clear();
   }
 };
 
@@ -422,6 +424,9 @@ public:
     // Acceleration and angular rate:
     command_.resize(1);
     command_[0] = 0xc2;
+    /**
+     * Reply
+     */
     reply_.resize(31);
   }
 };
@@ -438,6 +443,9 @@ public:
     // Stabilized acceleration, angular rate and magnetometer:
     command_.resize(1);
     command_[0] = 0xd2;
+    /**
+     * Reply
+     */
     reply_.resize(43);
   }
 };
@@ -454,6 +462,9 @@ public:
     // Acceleration, angular rate and orientation matrix:
     command_.resize(1);
     command_[0] = 0xc8;
+    /**
+     * Reply
+     */
     reply_.resize(67);
   }
 };
@@ -469,6 +480,9 @@ public:
     // Quaternion:
     command_.resize(1);
     command_[0] = 0xdf;
+    /**
+     * Reply
+     */
     reply_.resize(23);
   }
 };
@@ -476,80 +490,3 @@ public:
 } // namespace imu_3DM_GX3_25
 } // namespace imu_core
 #endif // IMU_3DM_GX3_25_MSG_HPP
-
-
-
-
-
-
-
-
-
-
-
-
-
-// /* SUPPORTED MESSAGE TYPES: */
-
-// // Acceleration and angular rate:
-// #define CMD_AC_AN 0xc2
-// #define CMD_AC_AN_LEN 1
-// #define RPLY_AC_AN_LEN 31
-
-// // Stabilized acceleration, angular rate and magnetometer:
-// #define CMD_STAB_AC_AN_MAG 0xd2
-// #define CMD_STAB_AC_AN_MAG_LEN 1
-// #define RPLY_STAB_AC_AN_MAG_LEN 43
-
-// // Acceleration, angular rate and orientation matrix:
-// #define CMD_AC_AN_OR 0xc8
-// #define CMD_AC_AN_OR_LEN 1
-// #define RPLY_AC_AN_OR_LEN 67
-
-// // Quaternion:
-// #define CMD_QUAT 0xdf
-// #define CMD_QUAT_LEN 1
-// #define RPLY_QUAT_LEN 23
-
-// /* INTERACTION MESSAGES: */
-
-// // Set continuous mode:
-// #define CMD_CONT_MODE 0xc4
-// #define CMD_CONT_MODE_LEN 4
-// #define CONT_MODE_CONF1 0xc1
-// #define CONT_MODE_CONF2 0x29
-// #define RPLY_CONT_MODE_LEN 8
-
-// // Stop continuous mode:
-// #define CMD_STOP_CONT 0xfa
-// #define CMD_STOP_CONT_LEN 3
-// #define STOP_CONT_CONF1 0x75
-// #define STOP_CONT_CONF2 0xb4
-
-// // Set sampling settings:
-// #define CMD_SAMP_SETTINGS 0xdb
-// #define CMD_SAMP_SETTINGS_LEN 20
-// #define SAMP_SETTINGS_CONF1 0xa8
-// #define SAMP_SETTINGS_CONF2 0xb9
-// #define RPLY_SAMP_SETTINGS_LEN 19
-
-// // Set communication settings:
-// #define CMD_COMM_SETTINGS 0xd9
-// #define CMD_COMM_SETTINGS_LEN 11
-// #define COMM_SETTINGS_CONF1 0xc3
-// #define COMM_SETTINGS_CONF2 0x55
-// #define RPLY_COMM_SETTINGS_LEN 10
-
-// // Record gyroscope biases:
-// #define CMD_GYRO_BIAS 0xcd
-// #define CMD_GYRO_BIAS_LEN 5
-// #define GYRO_BIAS_CONF1 0xc1
-// #define GYRO_BIAS_CONF2 0x29
-// #define RPLY_GYRO_BIAS_LEN 19
-
-// // Set onboard timestamp:
-// #define CMD_TIMER 0xd7
-// #define CMD_TIMER_LEN 8
-// #define TIMER_CONF1 0xc1
-// #define TIMER_CONF2 0x29
-// #define RPLY_TIMER_LEN 7

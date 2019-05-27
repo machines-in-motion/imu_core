@@ -8,6 +8,7 @@
 #include "real_time_tools/timer.hpp"
 
 #include "imu-core/imu_interface.hpp"
+#include "imu-core/imu_3DM_GX3_25_msg.hpp"
 
 namespace imu_core
 {
@@ -30,7 +31,8 @@ public:
    * 
    * @param port_name  is the linux device name, e.g. "/dev/ttyACM0".
    */
-  Imu3DM_GX3_25(const std::string& port_name);
+  Imu3DM_GX3_25(const std::string& port_name,
+                const bool& stream_data=false);
 
   /**
    * @brief Destroy the Imu3DM_GX3_25 object
@@ -44,7 +46,7 @@ public:
    * @return true if success
    * @return false if failure
    */
-  bool initialize();
+  virtual bool initialize();
   
   /**
    * Helper methods. The only public methods the user should use are
@@ -89,8 +91,19 @@ public:
    */
   bool send_message(const ImuMsg& msg)
   {
-    return usb_stream_.write_device(msg.command_);
+    bool success = true;
+    // success = success && usb_stream_.flush();
+    success = success && usb_stream_.write_device(msg.command_);
+    return success;
   }
+
+  /**
+   * @brief Soft reset the device upon connection
+   * 
+   * @return true if success
+   * @return false if failure
+   */
+  bool reset_device();
 
   /**
    * @brief Set the communication settings of the IMU
@@ -152,10 +165,10 @@ public:
     if(imu_object->reading_loop())
     {
       rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Status] "
-                "thread closing normally.");
+                "thread closing normally.\n");
     }else{
       rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Error] "
-                "thread closing after an error occured.");
+                "thread closing after an error occured.\n");
     }
   }
 
@@ -242,6 +255,15 @@ private:
    * @brief Manage the thread.
    */
   bool stop_imu_communication_;
+  /**
+   * @brief Message to get the Acelerometer and Gyroscope data.
+   */
+  AccGyroMsg acc_gyro_msg_;
+  /**
+   * @brief Define if the imu is streaming the data or if we use it in a poll
+   * mode.
+   */
+  bool stream_data_;
 };
 
 } // namespace imu_3DM_GX3_25
