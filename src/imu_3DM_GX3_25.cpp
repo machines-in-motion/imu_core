@@ -52,7 +52,7 @@ bool Imu3DM_GX3_25::initialize()
   int retry = 0;
   int max_retry = 3;
   do{
-    initialized = initialized && reset_device();
+    initialized = initialized && stop_streaming_data();
     initialized = initialized && set_communication_settings();
     initialized = initialized && set_sampling_settings();
     initialized = initialized && initialize_time_stamp();
@@ -213,7 +213,7 @@ bool Imu3DM_GX3_25::set_communication_settings(void)
   }
 
   // Check that the Device received the message.
-  bool stream_mode = true; // Poll mode
+  bool stream_mode = false; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
@@ -257,7 +257,7 @@ bool Imu3DM_GX3_25::set_sampling_settings(void)
   }
 
   // Check that the Device received the message.
-  bool stream_mode = true; // Poll mode
+  bool stream_mode = false; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::set_sampling_settings(): [Error] "
@@ -381,12 +381,15 @@ bool Imu3DM_GX3_25::stop_streaming_data(void)
 
   // Check that the Device received the message.
   bool stream_mode = true; // Poll mode
-  if (!receive_message(msg, stream_mode))
+  if(msg.reply_.size()>2)
   {
-    rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
-              "Failed to receive the continuous mode (stop streaming data) "
-              "message reply\n");
-    return false;
+    if (!receive_message(msg, stream_mode))
+    {
+      rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Error] "
+                "Failed to receive the continuous mode (stop streaming data) "
+                "message reply\n");
+      return false;
+    }
   }
 
   rt_printf("Imu3DM_GX3_25::stop_streaming_data(): [Status] "

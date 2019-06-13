@@ -123,16 +123,6 @@ public:
 class SamplingSettingsMsg: public ImuMsg
 {
 public:
-  /**
-   * @brief this allow us to define if the value should return, changed, or
-   * changed and stored.
-   */
-  enum ChangeParam{
-    GetCurrentValue=0,
-    ChangeValueTemporarily=1,
-    ChangeValueStoreVolatile=2,
-    ChangeValueNoReply=3,
-  };
 
   /**
    * @brief Construct a new SamplingSettingsMsg object
@@ -156,7 +146,7 @@ public:
     command_[0] = 0xdb ; // header
     command_[1] = 0xa8 ; // user confirmation 1
     command_[2] = 0xb9 ; // user confirmation 2
-    command_[3] = (uint8_t)ChangeParam::ChangeValueTemporarily;
+    command_[3] = 1 ; // change value temporarily;
 
     /**
      * Data Rate decimation value.  This valueisdivided intoa fixed 1000Hz
@@ -166,10 +156,13 @@ public:
      * rate must be increased (see command 0xD9).Minimum Value is 1, Maximum 
      * value is 1000.
      */
-    uint16_t data_rate_decimation = 1;
-    assert(data_rate_decimation <= 1000 && data_rate_decimation >= 1 && 
-           "The data rate decimation must be in [1 ; 1000]");
-    *(uint32_t *)(&command_[4]) = ImuInterface::bswap_32(data_rate_decimation);
+    // **** Does not work so we make it simpler ****
+    // uint16_t data_rate_decimation = 1;
+    // assert(data_rate_decimation <= 1000 && data_rate_decimation >= 1 && 
+    //        "The data rate decimation must be in [1 ; 1000]");
+    // *(uint32_t *)(&command_[4]) = ImuInterface::bswap_16(data_rate_decimation);
+    command_[4] = 0;
+    command_[5] = 1;
 
     /**
      * Data conditioning function selector:
@@ -200,9 +193,9 @@ public:
      * this value. Minimum value is 1, maximum value is 32. Default is 15
      */
     uint8_t gyro_acc_window_filter_divider = 15;
-    assert(1 <= gyro_acc_window_filter_divider &&
-           gyro_acc_window_filter_divider <= 32 &&
-           "gyro acc filter divider must be in [1, 32]");
+    // assert(1 <= gyro_acc_window_filter_divider &&
+    //        gyro_acc_window_filter_divider <= 32 &&
+    //        "gyro acc filter divider must be in [1, 32]");
     command_[8] = gyro_acc_window_filter_divider;
 
     /**
@@ -210,9 +203,9 @@ public:
      * value. Minimum value is 1, maximum value is 32  Default is 17.
      */
     uint8_t magn_window_filter_divider = 17;
-    assert(1 <= magn_window_filter_divider &&
-           magn_window_filter_divider <= 32 &&
-           "magn filter divider must be in [1, 32]");
+    // assert(1 <= magn_window_filter_divider &&
+    //        magn_window_filter_divider <= 32 &&
+    //        "magn filter divider must be in [1, 32]");
     command_[9] = magn_window_filter_divider;
 
     /**
