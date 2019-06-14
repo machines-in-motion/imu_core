@@ -438,6 +438,11 @@
     buffer_[17] = 0;
     buffer_[18] = 0;
     buffer_[19] = 0;
+    printf("[");
+    for(int i = 0; i < CMD_SAMP_SETTINGS_LEN; ++i) {
+	    printf("%02x ", buffer_[i]);
+    }
+    printf("]\n");
 
     if(!writeToDevice(CMD_SAMP_SETTINGS_LEN)) {
       printString("ERROR >> Failed to set sampling settings\n");

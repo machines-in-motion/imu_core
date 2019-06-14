@@ -40,19 +40,19 @@ see test_interface in same folder for higher level preferred test
 
 int main(int argc, char** argv){
   
-  if (argc!=1){
+  if (argc!=2){
 
     printf("usage: test <device>\ne.g. test tty0\n");
 
   } else {
 
-    string device = std::string(argv[0]);
+    std::string device = std::string(argv[1]);
 
     uint8_t message_type[1];
     int num_messages = 1;
     message_type[0] = MESSAGE_TYPE;
     
-    ImuInterface myIMU(device,true,REALTIME,IS_45);
+    ImuInterface myIMU(device.c_str(),true,REALTIME,IS_45);
     myIMU.initialize(message_type,num_messages);
     
     double accel[3];
