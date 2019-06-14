@@ -92,7 +92,6 @@ public:
   bool send_message(const ImuMsg& msg)
   {
     bool success = true;
-    // success = success && usb_stream_.flush();
     success = success && usb_stream_.write_device(msg.command_);
     return success;
   }

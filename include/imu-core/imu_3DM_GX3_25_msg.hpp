@@ -156,13 +156,10 @@ public:
      * rate must be increased (see command 0xD9).Minimum Value is 1, Maximum 
      * value is 1000.
      */
-    // **** Does not work so we make it simpler ****
-    // uint16_t data_rate_decimation = 1;
-    // assert(data_rate_decimation <= 1000 && data_rate_decimation >= 1 && 
-    //        "The data rate decimation must be in [1 ; 1000]");
-    // *(uint32_t *)(&command_[4]) = ImuInterface::bswap_16(data_rate_decimation);
-    command_[4] = 0;
-    command_[5] = 1;
+    uint16_t data_rate_decimation = 1;
+    assert(data_rate_decimation <= 1000 && data_rate_decimation >= 1 && 
+           "The data rate decimation must be in [1 ; 1000]");
+    *(uint32_t *)(&command_[4]) = ImuInterface::bswap_16(data_rate_decimation);
 
     /**
      * Data conditioning function selector:
