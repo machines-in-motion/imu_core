@@ -36,6 +36,13 @@ namespace imu_3DM_GX3_25
      */
     static const uint8_t Quaternion = 0xdf;
 
+    /**
+     * @brief Check if teh data requested is supported
+     * 
+     * @param data_type the type of the data (acceleration, angular velocity,...)
+     * @return true if sucess
+     * @return false if failure
+     */
     static bool check_data_type(uint8_t data_type)
     {
       return (data_type == AccGyro || data_type == StabAccGyroMagn ||
@@ -69,7 +76,7 @@ public:
    *    BaudeRate::BR_230400
    *    BaudeRate::BR_460800
    *    BaudeRate::BR_921600
-   * @param change_param allow the user to ask for permanent change of paramters
+   * change_param allow the user to ask for permanent change of paramters
    * or not
    */
   CommunicationSettingsMsg(BaudeRate baude_rate_cst):
@@ -114,11 +121,33 @@ public:
      */
     reply_.resize(10, 0);
   }
+
+  /**
+   * @brief Get the baude rate setup return by the imu with this request
+   * 
+   * @return int the baude rate
+   */
+  int get_baude_rate()
+  {
+    uint8_t baude_rate_unit8[4];
+    baude_rate_unit8[0] = reply_[2];
+    baude_rate_unit8[1] = reply_[3];
+    baude_rate_unit8[2] = reply_[4];
+    baude_rate_unit8[3] = reply_[5];
+    uint32_t baude_rate = ImuInterface::bswap_32(*(uint32_t*)baude_rate_unit8);
+  }
 };
 
 /**
  * @brief This class allows us to send a simple message to the IMU in order to
  * modify its data sampling settings.
+ * 
+ * with the previous implementation we were sending:
+ * [db a8 b9 01 00 02 05 13 0f 11 00 0a 00 0a 00 00 00 00 00 00 ]
+ * 
+ * with the new one:
+ * [DB A8 B9 01 00 01 0D 10 0F 11 00 0A 00 0A 00 00 00 00 00 00 ]
+ * [DB A8 B9 01 00 01 15 13 0F 11 00 0A 00 0A 00 00 00 00 00 00 ]
  */
 class SamplingSettingsMsg: public ImuMsg
 {
@@ -127,16 +156,16 @@ public:
   /**
    * @brief Construct a new SamplingSettingsMsg object
    * 
-   * @param data_rate_decimation this divides the maximum rate of data (1000Hz).
+   * data_rate_decimation this divides the maximum rate of data (1000Hz).
    *   So if data_rate_decimation = 1, the rate of data is 1000Hz.
    *   And if data_rate_decimation = 1000, the rate of data is 1Hz.
-   * @param change_param allow the user to ask for permanent change of paramters
+   * command_[3] allow the user to ask for permanent change of paramters
    *   or not
-   * @param gyro_acc_window_filter_divider is defining the Gyrometer and
+   * gyro_acc_window_filter_divider is defining the Gyrometer and
    *   Accelerometer filter window size. The size is
    *   (1000/gyro_acc_window_filter_divider). The default value is (1000/15).
    *   1 <= gyro_acc_window_filter_divider <= 32
-   * @param magn_window_filter_divider is defining the Magnetometer filter 
+   * magn_window_filter_divider is defining the Magnetometer filter 
    *   window size. The size is (1000/magn_window_filter_divider). The default 
    *   value is (1000/17). 1 <= magn_window_filter_divider <= 32
    */
@@ -146,7 +175,7 @@ public:
     command_[0] = 0xdb ; // header
     command_[1] = 0xa8 ; // user confirmation 1
     command_[2] = 0xb9 ; // user confirmation 2
-    command_[3] = 1 ; // change value temporarily;
+    command_[3] = 2 ; // change value temporarily;
 
     /**
      * Data Rate decimation value.  This valueisdivided intoa fixed 1000Hz
@@ -271,7 +300,12 @@ public:
     command_[1] = 0xc1 ; // user confirmation 1
     command_[2] = 0x29 ; // user confirmation 2
     command_[3] = (uint8_t)ChangeParam::RestartTimerAtNewValue ;
-    *(uint32_t *)(&command_[4]) = ImuInterface::bswap_32(0); // start at 0
+     // start at 0
+    command_[4] = 0;
+    command_[5] = 0;
+    command_[6] = 0;
+    command_[7] = 0;
+    // *(uint32_t *)(&command_[4]) = ImuInterface::bswap_32(0);
 
     /**
      * Reply

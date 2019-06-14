@@ -30,6 +30,8 @@ public:
    * @brief Construct a new Imu3DM_GX3_25 object
    * 
    * @param port_name  is the linux device name, e.g. "/dev/ttyACM0".
+   * @param stream_data defines if the imu should stream its data or if we
+   * systematically ask for them.
    */
   Imu3DM_GX3_25(const std::string& port_name,
                 const bool& stream_data=false);
@@ -52,6 +54,14 @@ public:
    * Helper methods. The only public methods the user should use are
    * the one defined by the ImuInterface.
    */
+    
+  /**
+   * @brief Open the communication and setup the default communication rate
+   * 
+   * @return true if success 
+   * @return false if failure 
+   */
+  bool open_usb_port();
 
   /**
    * @brief Read a message form the IMU and check the alignement, the checksum
@@ -59,6 +69,7 @@ public:
    * 
    * @param msg the message conatining the command sent and the bufffer to
    * store the message.
+   * @param stream_mode defines if we simply read the port, or if we poll.
    * @return true if success
    * @return false if failure
    */

@@ -37,7 +37,36 @@ Imu3DM_GX3_25::~Imu3DM_GX3_25(void)
 bool Imu3DM_GX3_25::initialize()
 {
   // open OS communication
-  bool initialized = usb_stream_.open_device(port_name_);
+  bool initialized = open_usb_port();
+  // setup the IMU configuration
+ for(unsigned i=0 ; i<3 ; ++i)
+ {
+    initialized = initialized && stop_streaming_data();
+    // initialized = initialized && set_communication_settings();
+    // initialized = initialized && set_sampling_settings();
+    initialized = initialized && initialize_time_stamp();
+    initialized = initialized && capture_gyro_bias();
+    if(stream_data_)
+    {
+      initialized = initialized && start_streaming_data();
+    }
+    if(initialized)
+    {
+      break;
+    }
+  }
+
+  if(initialized)
+  {
+    thread_.create_realtime_thread(Imu3DM_GX3_25::reading_loop_helper, this);
+  }
+  return true;
+}
+
+bool Imu3DM_GX3_25::open_usb_port()
+{
+  // open OS communication
+  bool success = usb_stream_.open_device(port_name_);
   // setup OS communication
   port_config_.rts_cts_enabled_ = false;
   port_config_.parity_ = false;
@@ -46,30 +75,11 @@ bool Imu3DM_GX3_25::initialize()
   port_config_.data_bits_ = real_time_tools::PortConfig::cs8;
   port_config_.baude_rate_ = real_time_tools::PortConfig::BR_115200;
   usb_stream_.set_port_config(port_config_);
-  usb_stream_.set_poll_mode_timeout(0.100);
-
-  // setup the IMU configuration
-  int retry = 0;
-  int max_retry = 3;
-  do{
-    initialized = initialized && stop_streaming_data();
-    initialized = initialized && set_communication_settings();
-    initialized = initialized && set_sampling_settings();
-    initialized = initialized && initialize_time_stamp();
-    initialized = initialized && capture_gyro_bias();
-    if(stream_data_)
-    {
-      initialized = initialized && start_streaming_data();
-    }
-    ++retry;
-  }while(!initialized && retry < max_retry);
-
-  if(initialized)
-  {
-    thread_.create_realtime_thread(Imu3DM_GX3_25::reading_loop_helper, this);
-  }
-  return true;
+  usb_stream_.set_poll_mode_timeout(10.0);
+  // usb_stream_.flush();
+  return success;
 }
+
 
 bool Imu3DM_GX3_25::receive_message(ImuMsg& msg, bool stream_mode)
 {
@@ -162,8 +172,13 @@ bool Imu3DM_GX3_25::read_misaligned_msg_from_device(ImuMsg& msg)
                 "Could not read fragment.\n");
       return false;
     }
-    // we copy the rest of the message in the msg.reply_
+    // we shift the end of teh message to the beginning
     unsigned start_index = msg.reply_.size()-num_missed;
+    for(unsigned i=0 ; i<start_index ; ++i)
+    {
+      msg.reply_[i] = msg.reply_[i+start_index];
+    }
+    // we copy the rest of the message in the msg.reply_
     for(unsigned i=start_index ; i<msg.reply_.size() ; ++i)
     {
       msg.reply_[i] = fragment[i-start_index];
@@ -226,14 +241,8 @@ bool Imu3DM_GX3_25::set_communication_settings(void)
   // reset the computer port Baude Rate
   port_config_.baude_rate_ = BaudeRate::BR_115200;
   usb_stream_.set_port_config(port_config_);
-
-  uint8_t baude_rate_unit8[4];
-  baude_rate_unit8[0] = msg.reply_[2];
-  baude_rate_unit8[1] = msg.reply_[3];
-  baude_rate_unit8[2] = msg.reply_[4];
-  baude_rate_unit8[3] = msg.reply_[5];
-  uint32_t baude_rate = ImuInterface::bswap_32(*(uint32_t*)baude_rate_unit8);
-  assert(baude_rate == 115200);
+  
+  assert(msg.get_baude_rate() == 115200);
 
   rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Status] "
             "Set communication settings successfully.\n"
@@ -288,7 +297,7 @@ bool Imu3DM_GX3_25::initialize_time_stamp(void)
   }
 
   // Check that the Device received the message.
-  bool stream_mode = true; // Poll mode
+  bool stream_mode = false; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
     rt_printf("Imu3DM_GX3_25::initialize_time_stamp(): [Error] "

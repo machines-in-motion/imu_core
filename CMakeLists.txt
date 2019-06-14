@@ -61,6 +61,13 @@ target_link_libraries(imu-core ${catkin_LIBRARIES} ${Boost_LIBRARIES})
 # debugging or analytic programs #
 ##################################
 
+macro(add_imu_core_program source_file)
+  add_executable(${source_file} src/programs/${source_file}.cpp)
+  target_link_libraries(${source_file} imu-core)
+endmacro(add_imu_core_program source_file)
+
+add_imu_core_program(reset_3DM_GX3_25)
+
 
 
 #########
