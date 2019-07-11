@@ -29,10 +29,6 @@ int main(int argc, char** argv){
   imu_core::imu_3DM_GX3_25::Imu3DM_GX3_25 imu (device, stream_data);
   imu.open_usb_port();
   imu.reset_device();
-  imu.reset_device();
-  imu.reset_device();
-  imu.reset_device();
-  imu.reset_device();
   return 0;
 }
 

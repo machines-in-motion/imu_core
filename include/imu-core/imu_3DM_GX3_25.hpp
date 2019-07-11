@@ -177,8 +177,11 @@ public:
       rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Status] "
                 "thread closing normally.\n");
     }else{
-      rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Error] "
-                "thread closing after an error occured.\n");
+      if(!imu_object->stop_imu_communication_)
+      {
+        rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Error] "
+                  "thread closing after an error occured.\n");
+      }
     }
   }
 
