@@ -72,14 +72,14 @@ public:
    * 
    * @param baude_rate_cst is the baude rate the imu can use based on the
    * available ones:
-   *    BaudeRate::BR_115200
-   *    BaudeRate::BR_230400
-   *    BaudeRate::BR_460800
-   *    BaudeRate::BR_921600
+   *    (int)115200
+   *    (int)230400
+   *    (int)460800
+   *    (int)921600
    * change_param allow the user to ask for permanent change of paramters
    * or not
    */
-  CommunicationSettingsMsg(BaudeRate baude_rate_cst):
+  CommunicationSettingsMsg(int baude_rate_cst):
     ImuMsg()
   {
     command_.resize(11);
@@ -88,31 +88,7 @@ public:
     command_[2] = 0x55 ; // user confirmation 2
     command_[3] = (uint8_t)1; // UART1, Primary UART for host communication
     command_[4] = (uint8_t)ChangeParam::ChangeValueTemporarily;
-    uint32_t baud_rate = 0;
-    switch (baude_rate_cst)
-    {
-    case BaudeRate::BR_115200:
-      baud_rate = 115200;
-      *(uint32_t *)(&command_[5]) = ImuInterface::bswap_32(baud_rate);
-      break;
-    case BaudeRate::BR_230400:
-      baud_rate = 230400;
-      *(uint32_t *)(&command_[5]) = ImuInterface::bswap_32(baud_rate);
-      break;
-    case BaudeRate::BR_460800:
-      baud_rate = 460800;
-      *(uint32_t *)(&command_[5]) = ImuInterface::bswap_32(baud_rate);
-      break;
-    case BaudeRate::BR_921600:
-      baud_rate = 921600;
-      *(uint32_t *)(&command_[5]) = ImuInterface::bswap_32(baud_rate);
-      break;    
-    default:
-      throw std::runtime_error(
-        "ImuMsgCommunicationSettings::ImuMsgCommunicationSettings() : "
-        "Baude rate supported by the imu, fix the code or correct baude rate");
-      break;
-    }
+    *(uint32_t *)(&command_[5]) = ImuInterface::bswap_32(baude_rate_cst);
     command_[9] = (uint8_t)2; // 2: Selected UART Enabled ; 0: Selected UART Disabled
     command_[10] = (uint8_t)0; // Reserved: Set to 0
 
@@ -390,7 +366,7 @@ public:
    */
   StopDataStreamMsg(): ImuMsg()
   {
-    if(0) // reuse the set continuous mode message (get a reply)
+    if(1) // reuse the set continuous mode message (get a reply)
     {
       // Set continuous mode:
       command_.resize(4);

@@ -1,3 +1,13 @@
+/**
+ * @file imu_3DM_GX5_25.hpp
+ * @author Maximilien Naveau (maximilien.naveau@gmail.com)
+ * @license License BSD-3-Clause
+ * @copyright Copyright (c) 2019, New York University and Max Planck Gesellschaft.
+ * @date 2019-09-13
+ * 
+ * Generic interface for the 3DM-GX5-25 IMU
+ */
+
 #ifndef IMU_3DM_GX3_25_HPP
 #define IMU_3DM_GX3_25_HPP
 
@@ -8,38 +18,61 @@
 #include "real_time_tools/timer.hpp"
 
 #include "imu-core/imu_interface.hpp"
-#include "imu-core/imu_3DM_GX3_25_msg.hpp"
+#include "imu-core/imu_3DM_GX5_25_msg.hpp"
+
+#define DEBUG_PRINT_IMU_GX5_25 false
 
 namespace imu_core
 {
-namespace imu_3DM_GX3_25
+namespace imu_3DM_GX5_25
 {
+
+enum AccIndex
+{
+  index_acc_x = 6,
+  index_acc_y = 10,
+  index_acc_z = 14
+};
+
+enum GyroIndex
+{
+  index_gyro_x = 20,
+  index_gyro_y = 24,
+  index_gyro_z = 28
+};
+
+enum RpyIndex
+{
+  index_rpy_x = 6,
+  index_rpy_y = 10,
+  index_rpy_z = 14
+};
 
 /**
  * @brief This class correspond to the driver of the imu 3DM_GX3_25 from
  * MicroStrain. Official API based on the common interface for IMUS.
  * 
  */
-class Imu3DM_GX3_25: public ImuInterface
+class Imu3DM_GX5_25: public ImuInterface
 {
 /**
  * Public interface
  */
 public:
   /**
-   * @brief Construct a new Imu3DM_GX3_25 object
+   * @brief Construct a new Imu3DM_GX5_25 object
    * 
    * @param port_name  is the linux device name, e.g. "/dev/ttyACM0".
    * @param stream_data defines if the imu should stream its data or if we
    * systematically ask for them.
    */
-  Imu3DM_GX3_25(const std::string& port_name,
+  Imu3DM_GX5_25(const std::string& port_name,
                 const bool& stream_data=false);
 
   /**
-   * @brief Destroy the Imu3DM_GX3_25 object
+   * @brief Destroy the Imu3DM_GX5_25 object
    */
-  virtual ~Imu3DM_GX3_25(void);
+  virtual ~Imu3DM_GX5_25(void);
 
   /**
    * @brief Inherted method from the ImuInterface. It launch the thread to
@@ -108,44 +141,28 @@ public:
   }
 
   /**
-   * @brief Soft reset the device upon connection
+   * @brief Set the imu into an idle mode to ease the communication
    * 
-   * @return true if success
-   * @return false if failure
+   * @return true 
+   * @return false 
    */
-  bool reset_device();
+  bool idle_mode();
 
   /**
-   * @brief Set the communication settings of the IMU
+   * @brief Set the IMU to send the imu (accelerometer and gyroscope) data
+   * at 1 kHz.
    * 
-   * @return true if success
-   * @return false if failure
+   * @return true 
+   * @return false 
    */
-  bool set_communication_settings(void);
+  bool imu_data_1kHz();
 
   /**
-   * @brief Set the sampling settings of the IMU data
+   * @brief Set the IMU to send the estimator filter (position and angle) data
+   * at 0.5 kHz.
    * 
-   * @return true if success
-   * @return false if failure
    */
-  bool set_sampling_settings(void);
-
-  /**
-   * @brief initialize the internal IMU time stamp to the PC one.
-   * 
-   * @return true if success
-   * @return false if failure
-   */
-  bool initialize_time_stamp(void);
-
-  /**
-   * @brief Wait 3 seconds and get the gyroscope bias.
-   * 
-   * @return true if success
-   * @return false if failure
-   */
-  bool capture_gyro_bias(void);
+  bool estimation_filter_data_500Hz();
   
   /**
    * @brief Send the message to the IMU to start streaming data
@@ -156,12 +173,12 @@ public:
   bool start_streaming_data(void);
 
   /**
-   * @brief Send the message to the IMU to stop streaming data
+   * @brief Set the msg heading at 0
    * 
-   * @return true if success
-   * @return false if failure
+   * @return true
+   * @return false
    */
-  bool stop_streaming_data(void);
+  bool set_heading_at_0();
 
   /**
    * @brief This helper function allows us to start the thread.
@@ -171,16 +188,22 @@ public:
    */
   static THREAD_FUNCTION_RETURN_TYPE reading_loop_helper(void* object)
   {
-    Imu3DM_GX3_25* imu_object = static_cast<Imu3DM_GX3_25*>(object);
+    Imu3DM_GX5_25* imu_object = static_cast<Imu3DM_GX5_25*>(object);
     if(imu_object->reading_loop())
     {
-      rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Status] "
-                "thread closing normally.\n");
+      if(DEBUG_PRINT_IMU_GX5_25)
+      {
+        rt_printf("Imu3DM_GX5_25::reading_loop_helper(): [Status] "
+                  "thread closing normally.\n");
+      }
     }else{
       if(!imu_object->stop_imu_communication_)
       {
-        rt_printf("Imu3DM_GX3_25::reading_loop_helper(): [Error] "
-                  "thread closing after an error occured.\n");
+        if(DEBUG_PRINT_IMU_GX5_25)
+        {
+          rt_printf("Imu3DM_GX5_25::reading_loop_helper(): [Error] "
+                      "thread closing after an error occured.\n");
+        }
       }
     }
   }
@@ -207,7 +230,7 @@ public:
    * @return true 
    * @return false 
    */
-  bool receive_acc_gyro(bool stream_data);
+  bool receive_data(bool stream_data);
 
   /**
    * @brief Parse the stabilized accelerometer, gyroscope and magnetometer
@@ -216,24 +239,32 @@ public:
    * @return true 
    * @return false 
    */
-  bool receive_stab_acc_gyro_magn(bool stream_data){}
+  bool receive_estimator_filter_data(bool stream_data){}
 
   /**
-   * @brief Parse the accelerometer, gyroscope and rotation matrix from the
-   * message
+   * @brief Convert 4 bits in a float number
    * 
-   * @return true 
-   * @return false 
+   * @return double
    */
-  bool receive_acc_gyro_rot_mat(bool stream_data){}
+  double double_from_byte_array(std::vector<uint8_t> buffer, unsigned start_index)
+  {
+    assert(buffer.size() > start_index + 3 && "Imu3DM_GX5_25::double_from_byte_array The buffer is too small");
+    union double_int {
+      float f;
+      unsigned long ul;
+    } data;
+    data.ul = ((buffer[start_index] << 24) | (buffer[start_index + 1] << 16) |
+              (buffer[start_index + 2] << 8) | (buffer[start_index + 3]));
+    return static_cast<double>(data.f);
+  }
 
-  /**
-   * @brief Parse the quaternion from the message
-   * 
-   * @return true 
-   * @return false 
-   */
-  bool receive_quaternion(bool stream_data){}
+  void wait_data_aligned()
+  {
+    while(!aligned_data_)
+    {
+      real_time_tools::Timer::sleep_ms(5);
+    }
+  }
 
 private:
   /**
@@ -269,14 +300,26 @@ private:
    */
   bool stop_imu_communication_;
   /**
-   * @brief Message to get the Acelerometer and Gyroscope data.
-   */
-  AccGyroMsg acc_gyro_msg_;
-  /**
    * @brief Define if the imu is streaming the data or if we use it in a poll
    * mode.
    */
   bool stream_data_;
+  /**
+   * @brief The raw data from the imu are stored here.
+   */
+  ImuDataMsg imu_data_msg_;
+  /**
+   * @brief Estimation filter raw data
+   */
+  EfDataMsg ef_data_msg_;
+  /**
+   * @brief Estimation filter data: Roll Pitch Yaw
+   */
+  Eigen::Vector3d rpy_;
+  /**
+   * @brief Check if the data is aligned or not, we wait until so.
+   */
+  bool aligned_data_;
 };
 
 } // namespace imu_3DM_GX3_25

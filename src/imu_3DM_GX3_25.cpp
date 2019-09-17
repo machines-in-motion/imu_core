@@ -22,15 +22,13 @@ Imu3DM_GX3_25::Imu3DM_GX3_25(const std::string& port_name,
   timer_.set_memory_size(100000); // 100 seconds at 1ms/iteration
   time_stamp_ = 0.0;
   stream_data_ = stream_data;
+  stop_imu_communication_ = false;
 }
 
 Imu3DM_GX3_25::~Imu3DM_GX3_25(void)
 {
+  while(!stop_streaming_data()){}
   stop_reading_loop();
-  if (stream_data_)
-  {
-    stop_streaming_data();
-  }
   reset_device();
   usb_stream_.close_device();
 }
@@ -43,34 +41,21 @@ bool Imu3DM_GX3_25::initialize()
   // setup the IMU configuration
 
   // communication_settings
-  bool ret = true;
-  for(unsigned i=0 ; i<10 ; ++i)
-  {
-    ret = set_communication_settings();
-    if(ret){break;}
-    usb_stream_.flush();
-  }
-  initialized = initialized && ret;
-
-
+  while(!set_communication_settings()){}
+  while(!set_sampling_settings()){}
+  while(!initialize_time_stamp()){}
+  while(!capture_gyro_bias()){}
+  while(!start_streaming_data()){}
   std::cout << "Initialized? : " << (initialized? "true":"false") << std::endl;
-  
-  // initialized = initialized && set_sampling_settings();
-  // initialized = initialized && initialize_time_stamp();
-  // initialized = initialized && capture_gyro_bias();
-  // if(stream_data_)
-  // {
-  //   initialized = initialized && start_streaming_data();
-  // }
-
   if(initialized)
   {
     thread_.create_realtime_thread(Imu3DM_GX3_25::reading_loop_helper, this);
   }
+  real_time_tools::Timer::sleep_ms(5);
   return true;
 }
 
-bool Imu3DM_GX3_25::open_usb_port()
+bool Imu3DM_GX3_25::open_usb_port(int bauderate)
 {
   // open OS communication
   bool success = usb_stream_.open_device(port_name_);
@@ -80,7 +65,7 @@ bool Imu3DM_GX3_25::open_usb_port()
   port_config_.stop_bits_ = real_time_tools::PortConfig::StopBits::one;
   port_config_.prepare_size_definition_ = false;
   port_config_.data_bits_ = real_time_tools::PortConfig::cs8;
-  port_config_.baude_rate_ = BaudeRate::BR_115200;
+  port_config_.baude_rate_ = bauderate;
   usb_stream_.set_port_config(port_config_);
   usb_stream_.set_poll_mode_timeout(0.1);
   // usb_stream_.flush();
@@ -224,7 +209,8 @@ bool Imu3DM_GX3_25::set_communication_settings(void)
             "Setting communication settings...\n");
 
   // send the configuration to the IMU
-  CommunicationSettingsMsg msg(BaudeRate::BR_115200);
+  int bauderate = 921600;
+  CommunicationSettingsMsg msg(bauderate);
   if (!send_message(msg))
   {
     rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Error] "
@@ -246,10 +232,10 @@ bool Imu3DM_GX3_25::set_communication_settings(void)
   }
 
   // reset the computer port Baude Rate
-  port_config_.baude_rate_ = BaudeRate::BR_115200;
+  port_config_.baude_rate_ = bauderate;
   usb_stream_.set_port_config(port_config_);
   
-  assert(msg.get_baude_rate() == 115200);
+  assert(msg.get_baude_rate() == bauderate);
 
   rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Status] "
             "Set communication settings successfully.\n"
@@ -418,7 +404,7 @@ bool Imu3DM_GX3_25::stop_streaming_data(void)
 
 bool Imu3DM_GX3_25::reading_loop(void)
 {
-  bool ret = false; // @todo: Warning must be true
+  bool ret = true;
   while (!stop_imu_communication_ && ret)
   {
     // for (int i = 0; i < 1/** num_messages_*/ ; ++i)
@@ -529,157 +515,6 @@ bool Imu3DM_GX3_25::receive_acc_gyro(bool stream_data)
 
   return true;
 }
-
-// bool Imu3DM_GX3_25::receiveStabAccelAngrateMag(void)
-// {
-
-//   if (stream_data_)
-//   {
-//     if (!readFromDevice(CMD_STAB_AC_AN_MAG, RPLY_STAB_AC_AN_MAG_LEN))
-//     {
-//       print_string("ERROR >> Failed to read streamed message.\n");
-//       return false;
-//     }
-//   }
-//   else
-//   {
-//     buffer_[0] = CMD_STAB_AC_AN_MAG;
-//     if (!writeToDevice(1))
-//     {
-//       print_string("ERROR >> Failed to send poll for data.\n");
-//       return false;
-//     }
-//     if (!readFromDevice(CMD_STAB_AC_AN_MAG, RPLY_STAB_AC_AN_MAG_LEN))
-//     {
-//       print_string("WARNING >> Failed to read polled message, skipping.\n");
-//       return false;
-//     }
-//   }
-
-//   lockData();
-
-//   float tmp[3];
-//   memcpy(tmp, &(buffer_[1]), 3 * sizeof(float));
-//   for (int i = 0; i < 3; ++i)
-//   {
-//     stab_accel_[i] = tmp[i];
-//   }
-
-//   memcpy(tmp, &(buffer_[13]), 3 * sizeof(float));
-//   for (int i = 0; i < 3; ++i)
-//   {
-//     angrate_[i] = tmp[i];
-//   }
-
-//   memcpy(tmp, &(buffer_[25]), 3 * sizeof(float));
-//   for (int i = 0; i < 3; ++i)
-//   {
-//     stab_mag_[i] = tmp[i];
-//   }
-
-//   timestamp_ = ((buffer_[37] << 24) | (buffer_[38] << 16) | (buffer_[39] << 8) | (buffer_[40])) / 62500.0;
-
-//   unlockData();
-
-//   return true;
-// }
-
-// bool Imu3DM_GX3_25::receiveAccelAngrateOrient(void)
-// {
-
-//   if (stream_data_)
-//   {
-//     if (!readFromDevice(CMD_AC_AN_OR, RPLY_AC_AN_OR_LEN))
-//     {
-//       print_string("ERROR >> Failed to read streamed message.\n");
-//       return false;
-//     }
-//   }
-//   else
-//   {
-//     buffer_[0] = CMD_AC_AN_OR;
-//     if (!writeToDevice(1))
-//     {
-//       print_string("ERROR >> Failed to send poll for data.\n");
-//       return false;
-//     }
-//     if (!readFromDevice(CMD_AC_AN_OR, RPLY_AC_AN_OR_LEN))
-//     {
-//       print_string("WARNING >> Failed to read polled message, skipping.\n");
-//       return false;
-//     }
-//   }
-
-//   lockData();
-
-//   float tmp[3];
-//   memcpy(tmp, &(buffer_[1]), 3 * sizeof(float));
-//   for (int i = 0; i < 3; ++i)
-//   {
-//     stab_accel_[i] = tmp[i];
-//   }
-
-//   memcpy(tmp, &(buffer_[13]), 3 * sizeof(float));
-//   for (int i = 0; i < 3; ++i)
-//   {
-//     angrate_[i] = tmp[i];
-//   }
-
-//   float tmp_mat[9];
-//   memcpy(tmp_mat, &(buffer_[25]), 9 * sizeof(float));
-//   for (int i = 0; i < 9; ++i)
-//   {
-//     orient_mat_[i] = tmp_mat[i];
-//   }
-
-//   timestamp_ = ((buffer_[61] << 24) | (buffer_[62] << 16) | (buffer_[63] << 8) | (buffer_[64])) / 62500.0;
-
-//   unlockData();
-
-//   return true;
-// }
-
-// bool Imu3DM_GX3_25::receiveQuat(void)
-// {
-
-//   if (stream_data_)
-//   {
-//     if (!readFromDevice(CMD_QUAT, RPLY_QUAT_LEN))
-//     {
-//       print_string("ERROR >> Failed to read streamed message.\n");
-//       return false;
-//     }
-//   }
-//   else
-//   {
-//     buffer_[0] = CMD_QUAT;
-//     if (!writeToDevice(1))
-//     {
-//       print_string("ERROR >> Failed to send poll for data.\n");
-//       return false;
-//     }
-//     if (!readFromDevice(CMD_QUAT, RPLY_QUAT_LEN))
-//     {
-//       print_string("WARNING >> Failed to read polled message, skipping.\n");
-//       return false;
-//     }
-//   }
-
-//   lockData();
-
-//   float tmp[4];
-//   memcpy(tmp, &(buffer_[1]), 4 * sizeof(float));
-//   for (int i = 0; i < 4; ++i)
-//   {
-//     quat_[i] = tmp[i];
-//   }
-
-//   timestamp_ = ((buffer_[17] << 24) | (buffer_[18] << 16) | (buffer_[19] << 8) | (buffer_[20])) / 62500.0;
-
-//   unlockData();
-
-//   return true;
-// }
 
 } // namespace imu_3DM_GX3_25
 } // namespace imu_core

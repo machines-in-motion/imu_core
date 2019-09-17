@@ -52,6 +52,7 @@ catkin_package(
 ###########################
 set(SRCS_IMU
   src/imu_3DM_GX3_25.cpp
+  src/imu_3DM_GX5_25.cpp
   src/imu_interface.cpp
 )
 add_library(imu-core ${SRCS_IMU})
@@ -79,6 +80,7 @@ macro(add_imu_core_demo source_file)
 endmacro(add_imu_core_demo source_file)
 
 add_imu_core_demo(demo_imu_3DM_GX3_25)
+add_imu_core_demo(demo_imu_3DM_GX5_25)
 
 ##########################
 # building documentation #

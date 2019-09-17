@@ -11,7 +11,7 @@
  */
 
 #include "real_time_tools/timer.hpp"
-#include "imu-core/imu_3DM_GX3_25.hpp"
+#include "imu-core/imu_3DM_GX5_25.hpp"
 
 int main(int argc, char** argv){
   /**
@@ -27,14 +27,15 @@ int main(int argc, char** argv){
    * create the imu object.
    */
   bool stream_data = true;
-  imu_core::imu_3DM_GX3_25::Imu3DM_GX3_25 imu (device, stream_data);
+  imu_core::imu_3DM_GX5_25::Imu3DM_GX5_25 imu (device, stream_data);
   imu.initialize();
 
-  for(unsigned i=0 ; i<20 ; ++i)
+  for(unsigned i=0 ; i<100 ; ++i)
   {
     std::cout << "acc = " << imu.get_acceleration().transpose()
               << " ; ang rate = " << imu.get_angular_rate().transpose()
               << std::endl;
+    real_time_tools::Timer::sleep_ms(5);
   }
   return 0;
 }

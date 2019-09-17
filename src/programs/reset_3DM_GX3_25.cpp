@@ -27,8 +27,12 @@ int main(int argc, char** argv){
    */
   bool stream_data = false;
   imu_core::imu_3DM_GX3_25::Imu3DM_GX3_25 imu (device, stream_data);
-  imu.open_usb_port();
-  imu.reset_device();
+  imu.open_usb_port(921600);
+  while(!imu.stop_streaming_data()){}
+  for(unsigned i = 0 ; i < 5 ; ++i)
+  {
+    imu.reset_device();
+  }
   return 0;
 }
 

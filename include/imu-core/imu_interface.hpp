@@ -10,11 +10,6 @@
 namespace imu_core{
 
 /**
- * @brief Simple renaming for conveniency.
- */
-typedef real_time_tools::PortConfig::BaudeRate BaudeRate;
-
-/**
  * @brief This class allow the user to write or read some msg.
  */
 class ImuMsg
