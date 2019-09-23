@@ -162,7 +162,7 @@ bool Imu3DM_GX5_25::read_misaligned_msg_from_device(ImuMsg& msg)
                 msg.reply_debug_string().c_str());
     }
     // Search for the header:
-    int num_missed = 1;
+    unsigned int num_missed = 1;
     for (; num_missed < msg.reply_.size() - 2; ++num_missed)
     {
       if ( (msg.command_[0] = msg.reply_[num_missed + 0]) &&
@@ -418,7 +418,7 @@ bool Imu3DM_GX5_25::stop_reading_loop(void)
   return true;
 }
 
-bool Imu3DM_GX5_25::receive_data(bool stream_data)
+bool Imu3DM_GX5_25::receive_data(bool)
 {
   if(!usb_stream_.read_device(imu_data_msg_.reply_, true))
   {

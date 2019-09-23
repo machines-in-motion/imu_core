@@ -206,6 +206,7 @@ public:
         }
       }
     }
+    return THREAD_FUNCTION_RETURN_VALUE;
   }
 
   /**
@@ -236,10 +237,11 @@ public:
    * @brief Parse the stabilized accelerometer, gyroscope and magnetometer
    * from the message
    * 
+   * @param stream_data
    * @return true 
    * @return false 
    */
-  bool receive_estimator_filter_data(bool stream_data){}
+  bool receive_estimator_filter_data(bool){return false;}
 
   /**
    * @brief Convert 4 bits in a float number
