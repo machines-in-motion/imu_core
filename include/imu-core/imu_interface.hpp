@@ -75,7 +75,7 @@ public:
   virtual bool initialize() = 0;
 
   /**
-   * @brief Get the acceleration_ object
+   * @brief Get the linear acceleration of the imu.
    * 
    * @return const Eigen::Ref<Eigen::Vector3d> 
    */
@@ -84,7 +84,7 @@ public:
     return acceleration_;
   }
   /**
-   * @brief Get the angular_rate_ object
+   * @brief Get the angular rate of the imu
    * 
    * @return const Eigen::Ref<Eigen::Vector3d> 
    */

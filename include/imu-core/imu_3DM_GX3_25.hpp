@@ -42,8 +42,8 @@ public:
   virtual ~Imu3DM_GX3_25(void);
 
   /**
-   * @brief Inherted method from the ImuInterface. It launch the thread to
-   * stream the data and initialize the usb communication.
+   * @brief Inherited method from the ImuInterface. It launches the thread to
+   * stream the data and initializes the usb communication.
    * 
    * @return true if success
    * @return false if failure
@@ -51,12 +51,9 @@ public:
   virtual bool initialize();
   
   /**
-   * Helper methods. The only public methods the user should use are
+   * @brief Open the communication and setup the default communication rate.
+   * This is a helper methods. The only public methods the user should use are
    * the one defined by the ImuInterface.
-   */
-    
-  /**
-   * @brief Open the communication and setup the default communication rate
    * 
    * @return true if success 
    * @return false if failure 
@@ -66,6 +63,8 @@ public:
   /**
    * @brief Read a message form the IMU and check the alignement, the checksum
    * and the header.
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @param msg the message conatining the command sent and the bufffer to
    * store the message.
@@ -77,6 +76,8 @@ public:
 
   /**
    * @brief Check if the received information has the correct checksum.
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @param msg is the ImuMsg containing the reponse and the command message.
    * @return true 
@@ -86,6 +87,8 @@ public:
 
   /**
    * @brief Realign the reading loop to misaligned messages.
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @param msg the msg command and reply
    * @return true if success
@@ -95,6 +98,8 @@ public:
 
   /**
    * @brief Send a message to the IMU
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @param msg the message to be sent
    * @return true if success
@@ -109,6 +114,8 @@ public:
 
   /**
    * @brief Soft reset the device upon connection
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -117,6 +124,8 @@ public:
 
   /**
    * @brief Set the communication settings of the IMU
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -125,6 +134,8 @@ public:
 
   /**
    * @brief Set the sampling settings of the IMU data
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -133,6 +144,8 @@ public:
 
   /**
    * @brief initialize the internal IMU time stamp to the PC one.
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -141,6 +154,8 @@ public:
 
   /**
    * @brief Wait 3 seconds and get the gyroscope bias.
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -149,6 +164,8 @@ public:
   
   /**
    * @brief Send the message to the IMU to start streaming data
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -157,6 +174,8 @@ public:
 
   /**
    * @brief Send the message to the IMU to stop streaming data
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -165,6 +184,8 @@ public:
 
   /**
    * @brief This helper function allows us to start the thread.
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @param object is the current IMU object
    * @return THREAD_FUNCTION_RETURN_TYPE
@@ -187,6 +208,8 @@ public:
 
   /**
    * @brief This is the sensor acquisition loop
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -195,6 +218,8 @@ public:
 
   /**
    * @brief Flag the reading loop to stop its activity and join the thread
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true if success
    * @return false if failure
@@ -203,6 +228,8 @@ public:
 
   /**
    * @brief Parse the accelerometer and gyroscope from the message
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true 
    * @return false 
@@ -212,6 +239,8 @@ public:
   /**
    * @brief Parse the stabilized accelerometer, gyroscope and magnetometer
    * from the message
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true 
    * @return false 
@@ -221,6 +250,8 @@ public:
   /**
    * @brief Parse the accelerometer, gyroscope and rotation matrix from the
    * message
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true 
    * @return false 
@@ -229,6 +260,8 @@ public:
 
   /**
    * @brief Parse the quaternion from the message
+   * This is a helper methods. The only public methods the user should use are
+   * the one defined by the ImuInterface.
    * 
    * @return true 
    * @return false 
