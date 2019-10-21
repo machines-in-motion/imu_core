@@ -18,7 +18,7 @@ int main(int argc, char** argv){
    * Manage the arguments
    */
   if (argc <= 1){
-    printf("usage: test <device>\ne.g. test tty0\n");
+    printf("usage: demo_imu_3DM_GX3_25 <device>\ne.g. demo_imu_3DM_GX3_25 /dev/ttyACM0\n");
     return -1;
   }
   std::string device = std::string(argv[1]);

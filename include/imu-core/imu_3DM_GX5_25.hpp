@@ -274,7 +274,7 @@ private:
    */
   real_time_tools::RealTimeThread thread_;
   /**
-   * @brief Manage real time mutexes.
+   * @brief Mutex to protect the data between the conversion and the getters.
    */
   real_time_tools::RealTimeMutex mutex_;
   /**

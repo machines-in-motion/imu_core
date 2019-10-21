@@ -44,6 +44,10 @@ bool Imu3DM_GX5_25::initialize()
 {
   // open OS communication
   bool initialized = open_usb_port();
+  if(!initialized)
+  {
+    throw std::runtime_error("Cannot open device: " + port_name_);
+  }
   
   // setup the IMU configuration
   while(!idle_mode()){};
