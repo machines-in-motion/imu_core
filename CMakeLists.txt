@@ -1,13 +1,17 @@
 ###################
 # standard header # 
 ###################
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.1)
 
 # required to use std::shared_ptr in code and to link the python bindings
 if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
   set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
 endif()
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -Wall -Wextra")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+
+# Use C++11
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED on)
 
 # ensuring path to libraries are set during install
 set(CMAKE_SKIP_BUILD_RPATH  FALSE)
@@ -24,7 +28,6 @@ find_package(catkin REQUIRED COMPONENTS
   mpi_cmake_modules
   real_time_tools
 )
-find_package(X11 REQUIRED)
 search_for_boost()
 search_for_eigen()
 
