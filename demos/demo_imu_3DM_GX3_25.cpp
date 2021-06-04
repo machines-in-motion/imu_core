@@ -5,13 +5,28 @@
  *        the same package for an example of the API.
  * @version 0.1
  * @date 2019-05-09
- * 
+ *
  * @copyright Copyright (c) 2019
- * 
+ *
  */
+
+#include <cstdlib>
+#include <signal.h>
+
+#include <Eigen/Eigen>
 
 #include "real_time_tools/timer.hpp"
 #include "imu-core/imu_3DM_GX3_25.hpp"
+
+using namespace std;
+
+bool keep_running = true;
+
+// Define the function to be called when ctrl-c (SIGINT) is sent to process.
+void signal_callback_handler(int signum) {
+   // Terminate program
+   keep_running = false;
+}
 
 int main(int argc, char** argv){
   /**
@@ -23,6 +38,9 @@ int main(int argc, char** argv){
   }
   std::string device = std::string(argv[1]);
 
+  // Register ctrl-c handler.
+  signal(SIGINT, signal_callback_handler);
+
   /**
    * create the imu object.
    */
@@ -30,11 +48,28 @@ int main(int argc, char** argv){
   imu_core::imu_3DM_GX3_25::Imu3DM_GX3_25 imu (device, stream_data);
   imu.initialize();
 
-  for(unsigned i=0 ; i<20 ; ++i)
+  Eigen::IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
+
+  while (keep_running)
   {
-    std::cout << "acc = " << imu.get_acceleration().transpose()
-              << " ; ang rate = " << imu.get_angular_rate().transpose()
-              << std::endl;
+    Eigen::Vector3d acc = imu.get_acceleration()
+    Eigen::Vector3d ang_rate = imu.get_angular_rate()
+
+    std::cout << "acc = [";
+
+    for (int i = 0; i < 3; i++) {
+      printf("%+0.3f ", acc(i));
+    }
+
+    std::cout << "]; ang rate = [";
+
+    for (int i = 0; i < 3; i++) {
+      printf("%+0.3f ", ang_rate(i));
+    }
+
+    std::cout << "];" << std::endl;
+
+    real_time_tools::Timer::sleep_sec(0.05);
   }
   return 0;
 }
