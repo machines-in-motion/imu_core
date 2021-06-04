@@ -139,7 +139,7 @@ bool Imu3DM_GX3_25::read_misaligned_msg_from_device(ImuMsg& msg)
               "Read invalid message: %s\n",
               msg.reply_debug_string().c_str());
     // Search for the header:
-    int num_missed = 1;
+    std::size_t num_missed = 1;
     for (; num_missed < msg.reply_.size(); ++num_missed)
     {
       if (msg.command_[0] == msg.reply_[num_missed])

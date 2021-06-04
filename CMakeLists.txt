@@ -1,86 +1,104 @@
-###################
-# standard header # 
-###################
-cmake_minimum_required(VERSION 3.1)
+#
+# Standard header
+#
+cmake_minimum_required(VERSION 3.10.2)
 
-# required to use std::shared_ptr in code and to link the python bindings
-if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
-  set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wl,--no-as-needed")
+project(imu_core VERSION 1.0.0)
+
+# Using C++17
+if(NOT CMAKE_C_STANDARD)
+  set(CMAKE_C_STANDARD 99)
 endif()
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+if(NOT CMAKE_CXX_STANDARD)
+  set(CMAKE_CXX_STANDARD 17)
+endif()
 
-# Use C++11
-set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_STANDARD_REQUIRED on)
+#
+# Find dependencies.
+#
 
-# ensuring path to libraries are set during install
-set(CMAKE_SKIP_BUILD_RPATH  FALSE)
-set(CMAKE_BUILD_WITH_INSTALL_RPATH FALSE)
-set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib)
+find_package(mpi_cmake_modules REQUIRED)
+find_package(real_time_tools REQUIRED)
+find_package(Eigen3 REQUIRED)
+find_package(Boost REQUIRED COMPONENTS filesystem system thread)
 
-project(imu_core)
+set(all_targets)
 
-#####################
-# find dependencies #
-#####################
-find_package(catkin REQUIRED COMPONENTS
-  mpi_cmake_modules
-  real_time_tools
-)
-search_for_boost()
-search_for_eigen()
+#
+# Create the main library.
+#
+set(SRCS_IMU src/imu_3DM_GX3_25.cpp src/imu_3DM_GX5_25.cpp
+             src/imu_interface.cpp)
+add_library(${PROJECT_NAME} SHARED ${SRCS_IMU})
+# Add the include dependencies
+target_include_directories(
+  ${PROJECT_NAME} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                         $<INSTALL_INTERFACE:include>)
+target_link_libraries(${PROJECT_NAME} Boost::boost)
+target_link_libraries(${PROJECT_NAME} Boost::filesystem)
+target_link_libraries(${PROJECT_NAME} Boost::system)
+target_link_libraries(${PROJECT_NAME} Boost::thread)
+target_link_libraries(${PROJECT_NAME} Eigen3::Eigen)
+target_link_libraries(${PROJECT_NAME} real_time_tools::real_time_tools)
 
-#############################
-# get the include directory #
-#############################
-include_directories(BEFORE ${PROJECT_SOURCE_DIR}/include ${catkin_INCLUDE_DIRS})
+# For the installation
+list(APPEND all_targets ${PROJECT_NAME})
 
-#############################
-# create the catkin package #
-#############################
-catkin_package(
-  INCLUDE_DIRS ${PROJECT_SOURCE_DIR}/include
-  LIBRARIES imu-core
-  DEPENDS real_time_tools
-)
-
-###########################
-# create the main library #
-###########################
-set(SRCS_IMU
-  src/imu_3DM_GX3_25.cpp
-  src/imu_3DM_GX5_25.cpp
-  src/imu_interface.cpp
-)
-add_library(imu-core ${SRCS_IMU})
-target_link_libraries(imu-core ${catkin_LIBRARIES} ${Boost_LIBRARIES})
-
-##################################
-# debugging or analytic programs #
-##################################
+#
+# debugging or analytic programs
+#
 
 macro(add_imu_core_program source_file)
   add_executable(${source_file} src/programs/${source_file}.cpp)
-  target_link_libraries(${source_file} imu-core)
+  target_link_libraries(${source_file} ${PROJECT_NAME})
+
+  # save the name for installation
+  set(all_targets ${all_targets} ${source_file})
 endmacro(add_imu_core_program source_file)
 
 add_imu_core_program(reset_3DM_GX3_25)
 
-
-
-#########
-# Demos #
-#########
+#
+# Demos
+#
 macro(add_imu_core_demo source_file)
   add_executable(${source_file} demos/${source_file}.cpp)
-  target_link_libraries(${source_file} imu-core)
+
+  # dependencies
+  target_include_directories(
+    ${source_file} PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                          $<INSTALL_INTERFACE:include>)
+
+  target_link_libraries(${source_file} ${PROJECT_NAME})
+
+  # Save the name for installation
+  set(all_targets ${all_targets} ${source_file})
 endmacro(add_imu_core_demo source_file)
 
 add_imu_core_demo(demo_imu_3DM_GX3_25)
 add_imu_core_demo(demo_imu_3DM_GX5_25)
 
-##########################
-# building documentation #
-##########################
-build_doxygen_documentation()
+#
+# building documentation
+#
+add_documentation()
+
+#
+# Install the package
+#
+
+# install the include directory
+install(DIRECTORY include/ DESTINATION include)
+
+# command to install the library and binaries
+install(
+  TARGETS ${all_targets}
+  EXPORT ${PROJECT_NAME}Targets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES
+  DESTINATION include)
+
+# Export this package as a cmake package.
+generate_cmake_package()
