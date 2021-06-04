@@ -111,6 +111,7 @@ public:
     baude_rate_unit8[2] = reply_[4];
     baude_rate_unit8[3] = reply_[5];
     uint32_t baude_rate = ImuInterface::bswap_32(*(uint32_t*)baude_rate_unit8);
+    return baude_rate;
   }
 };
 

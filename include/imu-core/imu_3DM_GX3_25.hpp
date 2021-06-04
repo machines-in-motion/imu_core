@@ -204,6 +204,7 @@ public:
                   "thread closing after an error occured.\n");
       }
     }
+    return THREAD_FUNCTION_RETURN_VALUE;
   }
 
   /**
@@ -245,7 +246,7 @@ public:
    * @return true 
    * @return false 
    */
-  bool receive_stab_acc_gyro_magn(bool stream_data){}
+  bool receive_stab_acc_gyro_magn(bool /*stream_data*/){return true;}
 
   /**
    * @brief Parse the accelerometer, gyroscope and rotation matrix from the
@@ -256,7 +257,7 @@ public:
    * @return true 
    * @return false 
    */
-  bool receive_acc_gyro_rot_mat(bool stream_data){}
+  bool receive_acc_gyro_rot_mat(bool /*stream_data*/){return true;}
 
   /**
    * @brief Parse the quaternion from the message
@@ -266,7 +267,7 @@ public:
    * @return true 
    * @return false 
    */
-  bool receive_quaternion(bool stream_data){}
+  bool receive_quaternion(bool /*stream_data*/){return true;}
 
 private:
   /**
