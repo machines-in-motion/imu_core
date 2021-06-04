@@ -52,16 +52,19 @@ int main(int argc, char** argv){
 
   while (keep_running)
   {
+    Eigen::Vector3d acc = imu.get_acceleration()
+    Eigen::Vector3d ang_rate = imu.get_angular_rate()
+
     std::cout << "acc = [";
 
     for (int i = 0; i < 3; i++) {
-      printf("%+0.3f ", imu.get_acceleration()(i));
+      printf("%+0.3f ", acc(i));
     }
 
     std::cout << "]; ang rate = [";
 
     for (int i = 0; i < 3; i++) {
-      printf("%+0.3f ", imu.get_angular_rate()(i));
+      printf("%+0.3f ", ang_rate(i));
     }
 
     std::cout << "];" << std::endl;
