@@ -27,8 +27,8 @@ Imu3DM_GX3_25::Imu3DM_GX3_25(const std::string& port_name,
 
 Imu3DM_GX3_25::~Imu3DM_GX3_25(void)
 {
-  while(!stop_streaming_data()){}
   stop_reading_loop();
+  while(!stop_streaming_data()){}
   reset_device();
   usb_stream_.close_device();
 }
@@ -37,7 +37,7 @@ bool Imu3DM_GX3_25::initialize()
 {
   // open OS communication
   bool initialized = open_usb_port();
-  
+
   // setup the IMU configuration
 
   // communication_settings
@@ -113,7 +113,7 @@ bool Imu3DM_GX3_25::is_checksum_correct(const ImuMsg& msg)
     data_checksum += msg.reply_[i];
   }
   // Then we compute the big-endian of the last two bytes of the reply.
-  uint16_t last_byte_checksum = 
+  uint16_t last_byte_checksum =
     bswap_16(*(uint16_t *) (&msg.reply_[msg.reply_.size()-2]) );
   // return the test value.
   return data_checksum == last_byte_checksum;
@@ -122,7 +122,7 @@ bool Imu3DM_GX3_25::is_checksum_correct(const ImuMsg& msg)
 bool Imu3DM_GX3_25::read_misaligned_msg_from_device(ImuMsg& msg)
 {
 
-  // When we read corrupt data, try to keep reading until we catch up with 
+  // When we read corrupt data, try to keep reading until we catch up with
   // clean data:
   int trial = 0;
   while (msg.reply_[0] != msg.command_[0] || !is_checksum_correct(msg))
@@ -234,7 +234,7 @@ bool Imu3DM_GX3_25::set_communication_settings(void)
   // reset the computer port Baude Rate
   port_config_.baude_rate_ = bauderate;
   usb_stream_.set_port_config(port_config_);
-  
+
   assert(msg.get_baude_rate() == bauderate);
 
   rt_printf("Imu3DM_GX3_25::set_communication_settings(): [Status] "
