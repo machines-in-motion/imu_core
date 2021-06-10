@@ -52,8 +52,8 @@ int main(int argc, char** argv){
 
   while (keep_running)
   {
-    Eigen::Vector3d acc = imu.get_acceleration()
-    Eigen::Vector3d ang_rate = imu.get_angular_rate()
+    Eigen::Vector3d acc = imu.get_acceleration();
+    Eigen::Vector3d ang_rate = imu.get_angular_rate();
 
     std::cout << "acc = [";
 
