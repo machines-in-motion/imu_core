@@ -13,6 +13,16 @@
 #include "real_time_tools/timer.hpp"
 #include "imu-core/imu_3DM_GX5_25.hpp"
 
+using namespace std;
+
+bool keep_running = true;
+
+// Define the function to be called when ctrl-c (SIGINT) is sent to process.
+void signal_callback_handler(int signum) {
+   // Terminate program
+   keep_running = false;
+}
+
 int main(int argc, char** argv){
   /**
    * Manage the arguments
@@ -30,12 +40,28 @@ int main(int argc, char** argv){
   imu_core::imu_3DM_GX5_25::Imu3DM_GX5_25 imu (device, stream_data);
   imu.initialize();
 
-  for(unsigned i=0 ; i<100 ; ++i)
+  Eigen::IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
+
+  while (keep_running)
   {
-    std::cout << "acc = " << imu.get_acceleration().transpose()
-              << " ; ang rate = " << imu.get_angular_rate().transpose()
-              << std::endl;
-    real_time_tools::Timer::sleep_ms(5);
+    Eigen::Vector3d acc = imu.get_acceleration();
+    Eigen::Vector3d ang_rate = imu.get_angular_rate();
+
+    std::cout << "acc = [";
+
+    for (int i = 0; i < 3; i++) {
+      printf("%+0.3f ", acc(i));
+    }
+
+    std::cout << "]; ang rate = [";
+
+    for (int i = 0; i < 3; i++) {
+      printf("%+0.3f ", ang_rate(i));
+    }
+
+    std::cout << "];" << std::endl;
+
+    real_time_tools::Timer::sleep_sec(0.05);
   }
   return 0;
 }
