@@ -39,7 +39,7 @@ using `git clone` or `treep`:
     pip3 install treep
     cd ~/devel
     git clone git@github.com:machines-in-motion/treep_machines_in_motion.git
-    treep --clone IMU_CORE
+    treep --clone imu_core
     ```
 
 2. use `git clone`  
