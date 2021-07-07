@@ -6,7 +6,6 @@ copyright stuff
 #include <pybind11/stl_bind.h>
 #include <pybind11/eigen.h>
 
-// #include <imu-core/imu_3DM_GX3_25.hpp>
 #include <imu-core/imu_interface.hpp>
 #include <imu-core/imu_3DM_GX3_25.hpp>
 
