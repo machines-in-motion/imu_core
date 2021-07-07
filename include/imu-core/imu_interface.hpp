@@ -70,7 +70,7 @@ public:
    * @brief Initialization method that will depend on each IMU.
    * 
    * @return true if success.
-   * @return false is failure.
+   * @return false if failure.
    */
   virtual bool initialize() = 0;
 

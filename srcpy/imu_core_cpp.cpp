@@ -18,6 +18,7 @@ using namespace imu_core;
 using namespace imu_core::imu_3DM_GX3_25;
 
 
+// have to do this because initialize() is a pure virtual method
 class PyImuInterface : public ImuInterface{
 public:
   using ImuInterface::ImuInterface;

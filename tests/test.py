@@ -1,17 +1,17 @@
-import imu_core.imu_core_cpp, time, numpy as np, signal, sys
+import imu_core.imu_core_cpp, time, signal, sys
 
+keep_running = True
 
 def handle_signal(s, f):
     global keep_running
     keep_running = False
+    print("\nexiting")
 
-
-keep_running = True
-imu = imu_core.imu_core_cpp.Imu3DM_GX3_25("/dev/ttyACM1", True)  # assuming port of /dev/ttyACM1
-
-# imu.reset_device()
-imu.initialize()
 signal.signal(signal.SIGINT, handle_signal)
+
+imu = imu_core.imu_core_cpp.Imu3DM_GX3_25("/dev/ttyACM1", True)  # assuming port of /dev/ttyACM1
+imu.initialize()
+
 while keep_running:
     # print("acc: ", [f"{e:+.3f}" for e in imu.get_acceleration()], "ang rate: ", [f"{e:+.3f}" for e in imu.get_angular_rate()])
     print("acc = [", end='')
