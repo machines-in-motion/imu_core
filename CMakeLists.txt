@@ -21,8 +21,6 @@ find_package(mpi_cmake_modules REQUIRED)
 find_package(real_time_tools REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem system thread)
-
-# python bindings
 find_package(pybind11 REQUIRED)
 
 set(all_targets)
