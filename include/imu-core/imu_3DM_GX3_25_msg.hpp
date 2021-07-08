@@ -37,7 +37,7 @@ namespace imu_3DM_GX3_25
     static const uint8_t Quaternion = 0xdf;
 
     /**
-     * @brief Check if teh data requested is supported
+     * @brief Check if the data requested is supported
      * 
      * @param data_type the type of the data (acceleration, angular velocity,...)
      * @return true if sucess
