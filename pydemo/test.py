@@ -1,14 +1,14 @@
-import time
 import signal
 import sys
+import time
 import numpy as np
 import imu_core.imu_core_cpp as IMU
 
 
 def handle_signal(s, f):
-    # this way is better then the commented version because you want 
+    # this way is better then the commented version because you want
     # to force it to call destructor immediately
-    # For example, in ipython, you would have to exit the ipython 
+    # For example, in ipython, you would have to exit the ipython
     # instead completely instead of just ctrl-c to exit the script
     print("\nExiting!\n")
     global imu
