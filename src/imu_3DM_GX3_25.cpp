@@ -76,7 +76,7 @@ bool Imu3DM_GX3_25::open_usb_port(int bauderate)
 bool Imu3DM_GX3_25::receive_message(ImuMsg& msg, bool stream_mode)
 {
   ssize_t read_bytes = usb_stream_.read_maybe_device(msg.reply_, stream_mode);
-  if(read_bytes < 0) // TODO: consolidate conditions
+  if(read_bytes < 0)
   {
     rt_printf("Imu3DM_GX3_25::receive_message(): [Error] "
               "message badly received\n");
