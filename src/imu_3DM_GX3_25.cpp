@@ -82,17 +82,23 @@ bool Imu3DM_GX3_25::receive_message(ImuMsg& msg, bool stream_mode)
               "message badly received\n");
   }
 
-  // rt_printf("\nBREAK debug received message of size %ld, expected %ld\n\n", asdf, msg.reply_.size());
-  if(read_bytes != static_cast<ssize_t>(msg.reply_.size()))
+  int attempt_number = 1;
+  while (read_bytes < static_cast<ssize_t>(msg.reply_.size()))
   { 
     rt_printf("Imu3DM_GX3_25::receive_message(): [Error] "
-              "Not enough bytes read. trying again... Requested %ld bytes and received %ld bytes.\n",
+              "Not enough bytes read. Trying again. This is retry attempt %d. Requested %ld bytes and received %ld bytes.\n",
+              attempt_number,
               msg.reply_.size(),
               read_bytes
-              // msg_debug_string(msg.reply_, msg.reply_.size()).c_str()
               );
     // we didn't read enough bytes. try again
-    usb_stream_.read_maybe_device(msg.reply_, stream_mode, read_bytes);
+    ssize_t read = usb_stream_.read_maybe_device(msg.reply_, stream_mode, read_bytes);
+    if (read < 0)
+    {
+      return false;
+    }
+    read_bytes += read;
+    ++attempt_number;
   }
 
   if (!is_checksum_correct(msg))
