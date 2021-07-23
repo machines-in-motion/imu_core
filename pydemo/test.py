@@ -8,8 +8,8 @@ import imu_core.imu_core_cpp as IMU
 
 if __name__ == "__main__":
     def handle_signal(s, f):
-        global run
-        run = False
+        global keep_running
+        keep_running = False
         
     signal.signal(signal.SIGINT, handle_signal)
 
@@ -29,9 +29,9 @@ if __name__ == "__main__":
 
     imu.initialize()
 
-    run = True
+    keep_running = True
 
-    while run:
+    while keep_running:
         print("Acceleration: ", imu.get_acceleration(), "Angular Rate: ", imu.get_angular_rate())
         time.sleep(0.05)
 
