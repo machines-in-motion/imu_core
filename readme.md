@@ -15,6 +15,7 @@ You need:
 - [real_time_tools](https://github.com/machines-in-motion/real_time_tools)
 - Eigen3
 - Boost (filesystem system thread)
+- pybind11
 
 The best way to install the dependencies `mpi_cmake_modules` and
 `real_time_tools` is to use a ROS2 workspace.
@@ -62,6 +63,8 @@ colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release
 
 ### Usage
 
+This assume that your ```devel``` folder is located in your home directory ```~```.
+
 #### Demos
 
 To run the demo plug a valid imu and run:
@@ -73,6 +76,20 @@ or
 ```
 source ~/devel/workspace/install/setup.bash
 demo_imu_3DM_GX5_25
+```
+#### Python Demo
+Currently, only the GX3 has a Python demo.
+```
+source ~/devel/workspace/install/setup.bash
+cd ~/devel/workspace/src/imu_core/pydemo
+ipython
+>>> run test.py
+```
+or
+```
+source ~/devel/workspace/install/setup.bash
+cd ~/devel/workspace/src/imu_core/pydemo
+jupyter notebook nb.ipynb
 ```
 
 #### API documentation
