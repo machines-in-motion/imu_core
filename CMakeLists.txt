@@ -21,6 +21,7 @@ find_package(mpi_cmake_modules REQUIRED)
 find_package(real_time_tools REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Boost REQUIRED COMPONENTS filesystem system thread)
+find_package(pybind11 REQUIRED)
 
 set(all_targets)
 
@@ -83,6 +84,26 @@ add_imu_core_demo(demo_imu_3DM_GX5_25)
 #
 add_documentation()
 
+# python bindings
+set(py_imu_core_SRC_FILES
+  srcpy/imu_core_cpp.cpp
+)
+
+pybind11_add_module(imu_core_cpp MODULE ${py_imu_core_SRC_FILES})
+target_link_libraries(imu_core_cpp PRIVATE pybind11::module)
+target_link_libraries(imu_core_cpp PRIVATE imu_core)
+
+# install the bindings
+get_python_install_dir(python_install_dir)
+install(TARGETS imu_core_cpp DESTINATION ${python_install_dir}/${PROJECT_NAME})
+
+# install python package
+install(
+  DIRECTORY python/${PROJECT_NAME}
+  DESTINATION "${python_install_dir}"
+  PATTERN "*.pyc" EXCLUDE 
+  PATTERN "__pycache__" EXCLUDE
+)
 #
 # Install the package
 #

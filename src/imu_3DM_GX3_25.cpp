@@ -75,10 +75,30 @@ bool Imu3DM_GX3_25::open_usb_port(int bauderate)
 
 bool Imu3DM_GX3_25::receive_message(ImuMsg& msg, bool stream_mode)
 {
-  if(!usb_stream_.read_device(msg.reply_, stream_mode))
+  ssize_t read_bytes = usb_stream_.read_device_raw(msg.reply_, stream_mode);
+  if(read_bytes < 0)
   {
     rt_printf("Imu3DM_GX3_25::receive_message(): [Error] "
               "message badly received\n");
+  }
+
+  int attempt_number = 1;
+  while (read_bytes < static_cast<ssize_t>(msg.reply_.size()))
+  { 
+    rt_printf("Imu3DM_GX3_25::receive_message(): [Error] "
+              "Not enough bytes read. Trying again. This is retry attempt %d. Requested %ld bytes and received %ld bytes.\n",
+              attempt_number,
+              msg.reply_.size(),
+              read_bytes
+              );
+    // we didn't read enough bytes. try again
+    ssize_t read = usb_stream_.read_device_raw(msg.reply_, stream_mode, read_bytes);
+    if (read < 0)
+    {
+      return false;
+    }
+    read_bytes += read;
+    ++attempt_number;
   }
 
   if (!is_checksum_correct(msg))
@@ -164,7 +184,7 @@ bool Imu3DM_GX3_25::read_misaligned_msg_from_device(ImuMsg& msg)
                 "Could not read fragment.\n");
       return false;
     }
-    // we shift the end of teh message to the beginning
+    // we shift the end of the message to the beginning
     unsigned start_index = msg.reply_.size()-num_missed;
     for(unsigned i=0 ; i<start_index ; ++i)
     {
