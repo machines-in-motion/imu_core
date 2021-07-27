@@ -15,7 +15,6 @@ if __name__ == "__main__":
 
     if len(sys.argv) == 1:
         # default port
-        # port = "/dev/ttyACM0"
         port = "/dev/ttyACM1"
     elif len(sys.argv) == 2:
         # use command line argument
