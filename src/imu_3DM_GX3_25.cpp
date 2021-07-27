@@ -75,7 +75,7 @@ bool Imu3DM_GX3_25::open_usb_port(int bauderate)
 
 bool Imu3DM_GX3_25::receive_message(ImuMsg& msg, bool stream_mode)
 {
-  ssize_t read_bytes = usb_stream_.read_maybe_device(msg.reply_, stream_mode);
+  ssize_t read_bytes = usb_stream_.read_device_raw(msg.reply_, stream_mode);
   if(read_bytes < 0)
   {
     rt_printf("Imu3DM_GX3_25::receive_message(): [Error] "
@@ -92,7 +92,7 @@ bool Imu3DM_GX3_25::receive_message(ImuMsg& msg, bool stream_mode)
               read_bytes
               );
     // we didn't read enough bytes. try again
-    ssize_t read = usb_stream_.read_maybe_device(msg.reply_, stream_mode, read_bytes);
+    ssize_t read = usb_stream_.read_device_raw(msg.reply_, stream_mode, read_bytes);
     if (read < 0)
     {
       return false;
