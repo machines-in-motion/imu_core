@@ -40,12 +40,14 @@ int main(int argc, char** argv){
   imu_core::imu_3DM_GX5_25::Imu3DM_GX5_25 imu (device, stream_data);
   imu.initialize();
 
-  Eigen::IOFormat CleanFmt(4, 0, ", ", "\n", "[", "]");
+  Eigen::IOFormat CleanFmt(6, 0, ", ", "\n", "[", "]");
 
   while (keep_running)
   {
     Eigen::Vector3d acc = imu.get_acceleration();
     Eigen::Vector3d ang_rate = imu.get_angular_rate();
+    Eigen::Vector4d quat = imu.get_quaternion();
+
 
     std::cout << "acc = [";
 
@@ -57,6 +59,12 @@ int main(int argc, char** argv){
 
     for (int i = 0; i < 3; i++) {
       printf("%+0.3f ", ang_rate(i));
+    }
+
+    std::cout << "]; rpy = [";
+
+    for (int i = 0; i < 4; i++) {
+      printf("%+0.3f ", quat(i));
     }
 
     std::cout << "];" << std::endl;

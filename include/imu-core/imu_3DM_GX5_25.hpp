@@ -41,11 +41,13 @@ enum GyroIndex
   index_gyro_z = 28
 };
 
-enum RpyIndex
+enum QuatIndex
 {
-  index_rpy_x = 6,
-  index_rpy_y = 10,
-  index_rpy_z = 14
+  index_q0 = 34,
+  index_q1 = 38,
+  index_q2 = 42,
+  index_q3 = 46
+
 };
 
 /**
@@ -314,10 +316,6 @@ private:
    * @brief Estimation filter raw data
    */
   EfDataMsg ef_data_msg_;
-  /**
-   * @brief Estimation filter data: Roll Pitch Yaw
-   */
-  Eigen::Vector3d rpy_;
   /**
    * @brief Check if the data is aligned or not, we wait until so.
    */

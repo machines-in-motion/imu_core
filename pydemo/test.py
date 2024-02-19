@@ -24,14 +24,14 @@ if __name__ == "__main__":
         sys.exit(f"Wrong number of arguments: expected 1, received {len(sys.argv) - 1}: {sys.argv[1:]}")
 
 
-    imu = IMU.Imu3DM_GX3_25(port, True)
+    imu = IMU.Imu3DM_GX5_25(port, True)
 
     imu.initialize()
 
     keep_running = True
 
     while keep_running:
-        print("Acceleration: ", imu.get_acceleration(), "Angular Rate: ", imu.get_angular_rate())
+        print("Acceleration: ", imu.get_acceleration(), "Angular Rate: ", imu.get_angular_rate(), "Quaternion: ", imu.get_quaternion())
         time.sleep(0.05)
 
     print("\nExiting!")    

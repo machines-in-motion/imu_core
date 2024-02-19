@@ -196,6 +196,57 @@ public:
 };
 
 /**
+ * @brief IMU data: acc+gyr+quat at 1000Hz
+ */
+class AccGyrQuat1kHzMsg: public GX5ImuMsg
+{
+public:
+
+  /**
+   * @brief Construct a new AccGyr1kHzMsg object
+   * This this "IMU Message Format".
+   * IMU data: acc+gyr at 1000Hz
+   * Command: 75 65 0C 0A 0A 08 01 02 04 00 01 05 00 01 10 73
+   * reply: 
+   */
+  AccGyrQuat1kHzMsg(): GX5ImuMsg()
+  {
+    descr_set_ = 0x0C;
+    cmd_field_data_.resize(13);
+    cmd_field_data_[0]  = static_cast<uint8_t>(cmd_field_data_.size());
+    cmd_field_data_[1]  = 0x08; // Field descr => command byte? (see answer)
+    cmd_field_data_[2]  = 0x01; // func use new settings
+    cmd_field_data_[3]  = 0x03; // 3 Descr
+    cmd_field_data_[4]  = 0x04; // 1rst Descr accelerometer
+    cmd_field_data_[5]  = 0x00; // Rate Dec ...
+    cmd_field_data_[6]  = 0x01; // ... 1kHz
+    cmd_field_data_[7]  = 0x05; // 2nd Descr gyrometer
+    cmd_field_data_[8]  = 0x00; // Rate Dec ...
+    cmd_field_data_[9]  = 0x01; // ... 1kHz
+    cmd_field_data_[10] = 0x0A; // 3rd Descr gyrometer
+    cmd_field_data_[11] = 0x00; // Rate Dec ...
+    cmd_field_data_[12] = 0x01; // ... 1kHz
+    construct_command();
+    std::vector<uint8_t> expected_command = 
+      {0x75, 0x65, 0x0C, 0x0A, 0x0A, 0x08, 0x01, 0x02, 0x04, 0x00,
+       0x01, 0x05, 0x00, 0x01, 0x0C, 0x00, 0x01, 0x10, 0x73};
+    assert(command_ == expected_command && "\"IMU Message Format\" command wrong");
+
+    reply_field_data_.resize(4);
+    reply_field_data_[0] = static_cast<uint8_t>(reply_field_data_.size());
+    reply_field_data_[1] = 0xF1; // field descr
+    reply_field_data_[2] = 0x08; // echo the command byte
+    reply_field_data_[3] = 0x00;
+    construct_expected_reply();
+    std::vector<uint8_t> expected_reply = 
+      {0x75, 0x65, 0x0C, 0x04, 0x04, 0xF1, 0x08, 0x00, 0xE7, 0xBA};
+    assert(expected_reply_ == expected_reply && "\"IMU Message Format\" expected reply wrong");
+
+    reply_.resize(expected_reply_.size());
+  }
+};
+
+/**
  * @brief This class allows us to get the EF data: RPY at 500Hz (max)
  * command: 75 65 0C 07 07 0A 01 01 05 00 01 06 23
  */
@@ -336,20 +387,26 @@ public:
     command_[1] = 0x65;
     command_[2] = descr_set_;
 
-    reply_field_data_.resize(28, 0x00);
+    reply_field_data_.resize(46, 0x00);
     reply_field_data_[0] = 0x0E; // acc field length: 14 bytes
     reply_field_data_[1] = 0x04; // Acc, reply description
     
     reply_field_data_[14] = 0x0E; // gyro field length: 14 bytes
     reply_field_data_[15] = 0x05; // Gyro
+
+    reply_field_data_[28] = 0x12; // quat field length: 18 bytes
+    reply_field_data_[29] = 0x0A; // quat
+
     construct_expected_reply();
     std::vector<uint8_t> expected_reply = 
-      {0x75, 0x65, 0x80, 0x1C, 0x0E, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0E, 0x05, 0x00, 0x00, 0x00, 0x00,
-       0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x9B, 0x00};    
+      {0x75, 0x65, 0x80, 0x1C, 
+      0x0E, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+      0x0E, 0x05, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+      0x12, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
+      0x9B, 0x00};    
     assert(expected_reply_ == expected_reply && "\"ImuDataMsg\" expected reply wrong");
     
-    reply_.resize(34);
+    reply_.resize(52);
   }
 };
 

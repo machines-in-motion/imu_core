@@ -261,7 +261,7 @@ bool Imu3DM_GX5_25::imu_data_1kHz(){
   }
 
   // send the configuration to the IMU
-  AccGyr1kHzMsg msg;
+  AccGyrQuat1kHzMsg msg;
   if (!send_message(msg))
   {
     if(DEBUG_PRINT_IMU_GX5_25)
@@ -448,11 +448,6 @@ bool Imu3DM_GX5_25::receive_data(bool)
       return false;
     }
   }
-  // if (!receive_message(ef_data_msg_, stream_data))
-  // {
-  //   rt_printf("Imu3DM_GX5_25::receive_data(): [Error] error collectiong estimation filter data\n");
-  //   return false;
-  // }
 
   mutex_.lock();
   
@@ -464,9 +459,10 @@ bool Imu3DM_GX5_25::receive_data(bool)
   angular_rate_[1] = double_from_byte_array(imu_data_msg_.reply_, index_gyro_y);
   angular_rate_[2] = double_from_byte_array(imu_data_msg_.reply_, index_gyro_z);
   
-  // rpy_[0] = double_from_byte_array(ef_data_msg_.reply_, index_rpy_x);
-  // rpy_[1] = double_from_byte_array(ef_data_msg_.reply_, index_rpy_y);
-  // rpy_[2] = double_from_byte_array(ef_data_msg_.reply_, index_rpy_z);
+  quat_[0] = double_from_byte_array(imu_data_msg_.reply_, index_q0);
+  quat_[1] = double_from_byte_array(imu_data_msg_.reply_, index_q1);
+  quat_[2] = double_from_byte_array(imu_data_msg_.reply_, index_q2);
+  quat_[3] = double_from_byte_array(imu_data_msg_.reply_, index_q3);
 
   mutex_.unlock();
   return true;
