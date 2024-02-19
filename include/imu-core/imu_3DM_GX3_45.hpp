@@ -157,7 +157,7 @@ public:
    * @return true 
    * @return false 
    */
-  bool imu_data_1kHz();
+  bool imu_data_100Hz();
 
   /**
    * @brief Set the IMU to send the estimator filter (position and angle) data

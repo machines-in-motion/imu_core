@@ -51,7 +51,7 @@ bool Imu3DM_GX3_45::initialize()
   
   // setup the IMU configuration
   while(!idle_mode()){};
-  while(!imu_data_1kHz()){};
+  while(!imu_data_100Hz()){};
   // while(!estimation_filter_data_500Hz()){};
   while(!set_heading_at_0()){};
   while(!start_streaming_data()){};
@@ -254,19 +254,19 @@ bool Imu3DM_GX3_45::idle_mode()
   }
   return true;
 }
-bool Imu3DM_GX3_45::imu_data_1kHz(){
+bool Imu3DM_GX3_45::imu_data_100Hz(){
   if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX3_45::imu_data_1kHz(): [Status] sending...\n");
+    rt_printf("Imu3DM_GX3_45::imu_data_100Hz(): [Status] sending...\n");
   }
 
   // send the configuration to the IMU
-  AccGyrQuat1kHzMsg msg;
+  AccGyrQuat100HzMsg msg;
   if (!send_message(msg))
   {
     if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX3_45::imu_data_1kHz(): [Error] sending message failed\n");
+      rt_printf("Imu3DM_GX3_45::imu_data_100Hz(): [Error] sending message failed\n");
     }
     return false;
   }
@@ -277,14 +277,14 @@ bool Imu3DM_GX3_45::imu_data_1kHz(){
   {
     if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX3_45::imu_data_1kHz(): [Error] receiving answer failed\n");
+      rt_printf("Imu3DM_GX3_45::imu_data_100Hz(): [Error] receiving answer failed\n");
     }
     return false;
   }
 
   if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX3_45::imu_data_1kHz(): [Status] sucess with reply: %s\n",
+    rt_printf("Imu3DM_GX3_45::imu_data_100Hz(): [Status] sucess with reply: %s\n",
           msg.reply_debug_string().c_str());
   }
   return true;

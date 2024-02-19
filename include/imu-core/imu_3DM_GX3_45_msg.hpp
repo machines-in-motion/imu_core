@@ -150,18 +150,18 @@ public:
 /**
  * @brief IMU data: acc+gyr at 1000Hz
  */
-class AccGyr1kHzMsg: public GX3ImuMsg
+class AccGyr100HzMsg: public GX3ImuMsg
 {
 public:
 
   /**
-   * @brief Construct a new AccGyr1kHzMsg object
+   * @brief Construct a new AccGyr100HzMsg object
    * This this "IMU Message Format".
    * IMU data: acc+gyr at 1000Hz
    * Command: 75 65 0C 0A 0A 08 01 02 04 00 01 05 00 01 10 73
    * reply: 
    */
-  AccGyr1kHzMsg(): GX3ImuMsg()
+  AccGyr100HzMsg(): GX3ImuMsg()
   {
     descr_set_ = 0x0C;
     cmd_field_data_.resize(10);
@@ -171,10 +171,10 @@ public:
     cmd_field_data_[3] = 0x02; // 2 Descr
     cmd_field_data_[4] = 0x04; // 1rst Descr accelerometer
     cmd_field_data_[5] = 0x00; // Rate Dec ...
-    cmd_field_data_[6] = 0x01; // ... 1kHz
+    cmd_field_data_[6] = 0x01; // ... 100Hz
     cmd_field_data_[7] = 0x05; // 2nd Descr gyrometer
     cmd_field_data_[8] = 0x00; // Rate Dec ...
-    cmd_field_data_[9] = 0x01; // ... 1kHz
+    cmd_field_data_[9] = 0x01; // ... 100Hz
     construct_command();
     std::vector<uint8_t> expected_command = 
       {0x75, 0x65, 0x0C, 0x0A, 0x0A, 0x08, 0x01, 0x02, 0x04, 0x00,
@@ -198,18 +198,18 @@ public:
 /**
  * @brief IMU data: acc+gyr+quat at 1000Hz
  */
-class AccGyrQuat1kHzMsg: public GX3ImuMsg
+class AccGyrQuat100HzMsg: public GX3ImuMsg
 {
 public:
 
   /**
-   * @brief Construct a new AccGyr1kHzMsg object
+   * @brief Construct a new AccGyr100HzMsg object
    * This this "IMU Message Format".
    * IMU data: acc+gyr at 1000Hz
    * Command: 75 65 0C 0A 0A 08 01 02 04 00 01 05 00 01 10 73
    * reply: 
    */
-  AccGyrQuat1kHzMsg(): GX3ImuMsg()
+  AccGyrQuat100HzMsg(): GX3ImuMsg()
   {
     descr_set_ = 0x0C;
     cmd_field_data_.resize(13);
@@ -219,13 +219,13 @@ public:
     cmd_field_data_[3]  = 0x03; // 3 Descr
     cmd_field_data_[4]  = 0x04; // 1rst Descr accelerometer
     cmd_field_data_[5]  = 0x00; // Rate Dec ...
-    cmd_field_data_[6]  = 0x01; // ... 1kHz
+    cmd_field_data_[6]  = 0x01; // ... 100Hz
     cmd_field_data_[7]  = 0x05; // 2nd Descr gyrometer
     cmd_field_data_[8]  = 0x00; // Rate Dec ...
-    cmd_field_data_[9]  = 0x01; // ... 1kHz
+    cmd_field_data_[9]  = 0x01; // ... 100Hz
     cmd_field_data_[10] = 0x0A; // 3rd Descr gyrometer
     cmd_field_data_[11] = 0x00; // Rate Dec ...
-    cmd_field_data_[12] = 0x01; // ... 1kHz
+    cmd_field_data_[12] = 0x01; // ... 100Hz
     construct_command();
     std::vector<uint8_t> expected_command = 
       {0x75, 0x65, 0x0C, 0x0A, 0x0A, 0x08, 0x01, 0x02, 0x04, 0x00,
