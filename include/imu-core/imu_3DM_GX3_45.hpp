@@ -1,15 +1,15 @@
 /**
- * @file imu_3DM_GX5_25.hpp
+ * @file imu_3DM_GX3_45.hpp
  * @author Maximilien Naveau (maximilien.naveau@gmail.com)
  * @license License BSD-3-Clause
  * @copyright Copyright (c) 2019, New York University and Max Planck Gesellschaft.
  * @date 2019-09-13
  * 
- * Generic interface for the 3DM-GX5-25 IMU
+ * Generic interface for the 3DM-GX3-45 IMU
  */
 
-#ifndef IMU_3DM_GX3_25_HPP
-#define IMU_3DM_GX3_25_HPP
+#ifndef IMU_3DM_GX3_45_HPP
+#define IMU_3DM_GX3_45_HPP
 
 #include "real_time_tools/thread.hpp"
 #include "real_time_tools/iostream.hpp"
@@ -18,13 +18,13 @@
 #include "real_time_tools/timer.hpp"
 
 #include "imu-core/imu_interface.hpp"
-#include "imu-core/imu_3DM_GX5_25_msg.hpp"
+#include "imu-core/imu_3DM_GX3_45_msg.hpp"
 
-#define DEBUG_PRINT_IMU_GX5_25 false
+#define DEBUG_PRINT_IMU_GX3_45 false
 
 namespace imu_core
 {
-namespace imu_3DM_GX5_25
+namespace imu_3DM_GX3_45
 {
 
 enum AccIndex
@@ -51,30 +51,30 @@ enum QuatIndex
 };
 
 /**
- * @brief This class correspond to the driver of the imu 3DM_GX3_25 from
+ * @brief This class correspond to the driver of the imu 3DM_GX3_45 from
  * MicroStrain. Official API based on the common interface for IMUS.
  * 
  */
-class Imu3DM_GX5_25: public ImuInterface
+class Imu3DM_GX3_45: public ImuInterface
 {
 /**
  * Public interface
  */
 public:
   /**
-   * @brief Construct a new Imu3DM_GX5_25 object
+   * @brief Construct a new Imu3DM_GX3_45 object
    * 
    * @param port_name  is the linux device name, e.g. "/dev/ttyACM0".
    * @param stream_data defines if the imu should stream its data or if we
    * systematically ask for them.
    */
-  Imu3DM_GX5_25(const std::string& port_name,
+  Imu3DM_GX3_45(const std::string& port_name,
                 const bool& stream_data=false);
 
   /**
-   * @brief Destroy the Imu3DM_GX5_25 object
+   * @brief Destroy the Imu3DM_GX3_45 object
    */
-  virtual ~Imu3DM_GX5_25(void);
+  virtual ~Imu3DM_GX3_45(void);
 
   /**
    * @brief Inherted method from the ImuInterface. It launch the thread to
@@ -190,20 +190,20 @@ public:
    */
   static THREAD_FUNCTION_RETURN_TYPE reading_loop_helper(void* object)
   {
-    Imu3DM_GX5_25* imu_object = static_cast<Imu3DM_GX5_25*>(object);
+    Imu3DM_GX3_45* imu_object = static_cast<Imu3DM_GX3_45*>(object);
     if(imu_object->reading_loop())
     {
-      if(DEBUG_PRINT_IMU_GX5_25)
+      if(DEBUG_PRINT_IMU_GX3_45)
       {
-        rt_printf("Imu3DM_GX5_25::reading_loop_helper(): [Status] "
+        rt_printf("Imu3DM_GX3_45::reading_loop_helper(): [Status] "
                   "thread closing normally.\n");
       }
     }else{
       if(!imu_object->stop_imu_communication_)
       {
-        if(DEBUG_PRINT_IMU_GX5_25)
+        if(DEBUG_PRINT_IMU_GX3_45)
         {
-          rt_printf("Imu3DM_GX5_25::reading_loop_helper(): [Error] "
+          rt_printf("Imu3DM_GX3_45::reading_loop_helper(): [Error] "
                       "thread closing after an error occured.\n");
         }
       }
@@ -252,7 +252,7 @@ public:
    */
   double double_from_byte_array(std::vector<uint8_t> buffer, unsigned start_index)
   {
-    assert(buffer.size() > start_index + 3 && "Imu3DM_GX5_25::double_from_byte_array The buffer is too small");
+    assert(buffer.size() > start_index + 3 && "Imu3DM_GX3_45::double_from_byte_array The buffer is too small");
     union double_int {
       float f;
       unsigned long ul;
@@ -322,6 +322,6 @@ private:
   bool aligned_data_;
 };
 
-} // namespace imu_3DM_GX3_25
+} // namespace imu_3DM_GX3_45
 } // namespace imu_core
-#endif // IMU_3DM_GX3_25_HPP
+#endif // IMU_3DM_GX3_45_HPP

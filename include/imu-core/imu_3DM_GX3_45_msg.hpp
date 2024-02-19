@@ -1,33 +1,33 @@
 /**
- * @file imu_3DM_GX5_25_msg.hpp
+ * @file imu_3DM_GX3_45_msg.hpp
  * @author Maximilien Naveau (maximilien.naveau@gmail.com)
  * @license License BSD-3-Clause
  * @copyright Copyright (c) 2019, New York University and Max Planck Gesellschaft.
  * @date 2019-09-13
  * 
- * Messages specific to the 3DM-GX5-25 IMU protocole
+ * Messages specific to the 3DM-GX3-25 IMU protocole
  */
 
-#ifndef IMU_3DM_GX3_25_MSG_HPP
-#define IMU_3DM_GX3_25_MSG_HPP
+#ifndef IMU_3DM_GX3_45_MSG_HPP
+#define IMU_3DM_GX3_45_MSG_HPP
 
 #include "imu-core/imu_interface.hpp"
 
 namespace imu_core
 {
-namespace imu_3DM_GX5_25
+namespace imu_3DM_GX3_45
 {
 
 /**
  * @brief Simple class that add a field where the expected reply is registered.
  */
-class GX5ImuMsg: public ImuMsg
+class GX3ImuMsg: public ImuMsg
 {
 public:
   /**
-   * @brief Construct a new GX5ImuMsg object
+   * @brief Construct a new GX3ImuMsg object
    */
-  GX5ImuMsg(): ImuMsg(), sync1_(0x75), sync2_(0x65)
+  GX3ImuMsg(): ImuMsg(), sync1_(0x75), sync2_(0x65)
   {}
 
   /**
@@ -116,13 +116,13 @@ protected:
  * Command: 75 65 01 02 02 02 E1 C7
  * reply: 75 65 01 04 04 F1 [Commandecho:02 or Errorcode:00] D6 6C
  */
-class IdleModeMsg: public GX5ImuMsg
+class IdleModeMsg: public GX3ImuMsg
 {
 public:
   /**
    * @brief Construct a new IdleModeMsg object
    */
-  IdleModeMsg(): GX5ImuMsg()
+  IdleModeMsg(): GX3ImuMsg()
   {
     descr_set_ = 0x01;
     cmd_field_data_.resize(2);
@@ -150,7 +150,7 @@ public:
 /**
  * @brief IMU data: acc+gyr at 1000Hz
  */
-class AccGyr1kHzMsg: public GX5ImuMsg
+class AccGyr1kHzMsg: public GX3ImuMsg
 {
 public:
 
@@ -161,7 +161,7 @@ public:
    * Command: 75 65 0C 0A 0A 08 01 02 04 00 01 05 00 01 10 73
    * reply: 
    */
-  AccGyr1kHzMsg(): GX5ImuMsg()
+  AccGyr1kHzMsg(): GX3ImuMsg()
   {
     descr_set_ = 0x0C;
     cmd_field_data_.resize(10);
@@ -198,7 +198,7 @@ public:
 /**
  * @brief IMU data: acc+gyr+quat at 1000Hz
  */
-class AccGyrQuat1kHzMsg: public GX5ImuMsg
+class AccGyrQuat1kHzMsg: public GX3ImuMsg
 {
 public:
 
@@ -209,7 +209,7 @@ public:
    * Command: 75 65 0C 0A 0A 08 01 02 04 00 01 05 00 01 10 73
    * reply: 
    */
-  AccGyrQuat1kHzMsg(): GX5ImuMsg()
+  AccGyrQuat1kHzMsg(): GX3ImuMsg()
   {
     descr_set_ = 0x0C;
     cmd_field_data_.resize(13);
@@ -250,14 +250,14 @@ public:
  * @brief This class allows us to get the EF data: RPY at 500Hz (max)
  * command: 75 65 0C 07 07 0A 01 01 05 00 01 06 23
  */
-class EFdata500HzMsg: public GX5ImuMsg
+class EFdata500HzMsg: public GX3ImuMsg
 {
 public:
   /**
    * @brief 
    * 
    */
-  EFdata500HzMsg(): GX5ImuMsg()
+  EFdata500HzMsg(): GX3ImuMsg()
   {
     descr_set_ = 0x0C;
     cmd_field_data_.resize(7);
@@ -291,13 +291,13 @@ public:
 /**
  * @brief This message enables the data stream for IMU and EF (estimation filter)
  */
-class StreamImuEfMsg: public GX5ImuMsg
+class StreamImuEfMsg: public GX3ImuMsg
 {
 public:
   /**
    * @brief Construct a new StreamImuEfMsg object
    */
-  StreamImuEfMsg(): GX5ImuMsg()
+  StreamImuEfMsg(): GX3ImuMsg()
   {
     descr_set_ = 0x0C;
     cmd_field_data_.resize(10);
@@ -338,13 +338,13 @@ public:
 /**
  * @brief set heading at 0
  */
-class SetHeading0Msg: public GX5ImuMsg
+class SetHeading0Msg: public GX3ImuMsg
 {
 public:
   /**
    * @brief Construct a new SetHeading0Msg object
    */
-  SetHeading0Msg(): GX5ImuMsg()
+  SetHeading0Msg(): GX3ImuMsg()
   {
     descr_set_ = 0x0D;
     cmd_field_data_.resize(6);
@@ -376,10 +376,10 @@ public:
 /**
  * @brief Raw message containing the Estimation Filter data (roll, pitch, yaw)
  */
-class ImuDataMsg: public GX5ImuMsg
+class ImuDataMsg: public GX3ImuMsg
 {
 public:
-  ImuDataMsg(): GX5ImuMsg()
+  ImuDataMsg(): GX3ImuMsg()
   {
     descr_set_ = 0x80;
     command_.resize(3);
@@ -423,6 +423,6 @@ public:
   }
 };
 
-} // namespace imu_3DM_GX5_25
+} // namespace imu_3DM_GX3_45
 } // namespace imu_core
-#endif // IMU_3DM_GX3_25_MSG_HPP
+#endif // IMU_3DM_GX3_45_MSG_HPP

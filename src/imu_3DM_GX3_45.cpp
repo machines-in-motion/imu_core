@@ -1,21 +1,21 @@
 /**
- * @file imu_3DM_GX5_25.cpp
+ * @file imu_3DM_GX3_45.cpp
  * @author Maximilien Naveau (maximilien.naveau@gmail.com)
  * @license License BSD-3-Clause
  * @copyright Copyright (c) 2019, New York University and Max Planck Gesellschaft.
  * @date 2019-09-13
  * 
- * Generic interface for the 3DM-GX5-25 IMU
+ * Generic interface for the 3DM-GX3-25 IMU
  */
 
 #include <real_time_tools/spinner.hpp>
-#include "imu-core/imu_3DM_GX5_25.hpp"
+#include "imu-core/imu_3DM_GX3_45.hpp"
 
 using namespace real_time_tools;
 namespace imu_core{
-namespace imu_3DM_GX5_25{
+namespace imu_3DM_GX3_45{
 
-Imu3DM_GX5_25::Imu3DM_GX5_25(const std::string& port_name,
+Imu3DM_GX3_45::Imu3DM_GX3_45(const std::string& port_name,
                              const bool& stream_data):
   ImuInterface(port_name)
 {
@@ -33,14 +33,14 @@ Imu3DM_GX5_25::Imu3DM_GX5_25(const std::string& port_name,
   aligned_data_ = false;
 }
 
-Imu3DM_GX5_25::~Imu3DM_GX5_25(void)
+Imu3DM_GX3_45::~Imu3DM_GX3_45(void)
 {
   stop_reading_loop();
   while(!idle_mode()){};  
   usb_stream_.close_device();
 }
 
-bool Imu3DM_GX5_25::initialize()
+bool Imu3DM_GX3_45::initialize()
 {
   // open OS communication
   bool initialized = open_usb_port();
@@ -55,19 +55,19 @@ bool Imu3DM_GX5_25::initialize()
   // while(!estimation_filter_data_500Hz()){};
   while(!set_heading_at_0()){};
   while(!start_streaming_data()){};
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
     std::cout << "Initialized? : " << (initialized? "true":"false") << std::endl;
   }
   if(initialized)
   {
-    thread_.create_realtime_thread(Imu3DM_GX5_25::reading_loop_helper, this);
+    thread_.create_realtime_thread(Imu3DM_GX3_45::reading_loop_helper, this);
   }
   wait_data_aligned();
   return true;
 }
 
-bool Imu3DM_GX5_25::open_usb_port(int bauderate)
+bool Imu3DM_GX3_45::open_usb_port(int bauderate)
 {
   // open OS communication
   bool sucess = usb_stream_.open_device(port_name_);
@@ -85,30 +85,30 @@ bool Imu3DM_GX5_25::open_usb_port(int bauderate)
 }
 
 
-bool Imu3DM_GX5_25::receive_message(ImuMsg& msg, bool stream_mode)
+bool Imu3DM_GX3_45::receive_message(ImuMsg& msg, bool stream_mode)
 {
   if(!usb_stream_.read_device(msg.reply_, stream_mode))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::receive_message(): [Error] "
+      rt_printf("Imu3DM_GX3_45::receive_message(): [Error] "
                 "message badly received\n");
     }
   }
 
   if (!is_checksum_correct(msg))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::receive_message(): [Warning] "
+      rt_printf("Imu3DM_GX3_45::receive_message(): [Warning] "
               "Received message with bad checksum: %s\n",
               msg.reply_debug_string().c_str());
     }
     if (stream_mode)
     {
-      if(DEBUG_PRINT_IMU_GX5_25)
+      if(DEBUG_PRINT_IMU_GX3_45)
       {
-        rt_printf("Imu3DM_GX5_25::receive_message(): [Status] "
+        rt_printf("Imu3DM_GX3_45::receive_message(): [Status] "
                   "Attempting to re-align with stream...\n");
       }
       return read_misaligned_msg_from_device(msg);
@@ -117,9 +117,9 @@ bool Imu3DM_GX5_25::receive_message(ImuMsg& msg, bool stream_mode)
   }
   else if (msg.reply_[0] != msg.command_[0] || msg.reply_[1] != msg.command_[1])
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::receive_message(): [Error] "
+      rt_printf("Imu3DM_GX3_45::receive_message(): [Error] "
               "Received unexpected message from device.\n");
     }
     return false;
@@ -127,19 +127,19 @@ bool Imu3DM_GX5_25::receive_message(ImuMsg& msg, bool stream_mode)
   return true;
 }
 
-bool Imu3DM_GX5_25::is_checksum_correct(const ImuMsg& msg)
+bool Imu3DM_GX3_45::is_checksum_correct(const ImuMsg& msg)
 {
   // First we compute the sum of the bytes of the response message except the
   // last 2 bytes. The last 2 bytes should be the sum of all the other bytes.
   uint8_t checksum_byte1 = 0;
   uint8_t checksum_byte2 = 0;
-  GX5ImuMsg::compute_checksum(msg.reply_, checksum_byte1, checksum_byte2); 
+  GX3ImuMsg::compute_checksum(msg.reply_, checksum_byte1, checksum_byte2); 
   // return the test value.
   return (msg.reply_[msg.reply_.size() - 2] == checksum_byte1 &&
           msg.reply_[msg.reply_.size() - 1] == checksum_byte2);
 }
 
-bool Imu3DM_GX5_25::read_misaligned_msg_from_device(ImuMsg& msg)
+bool Imu3DM_GX3_45::read_misaligned_msg_from_device(ImuMsg& msg)
 {
   // When we read corrupt data, try to keep reading until we catch up with 
   // clean data:
@@ -151,17 +151,17 @@ bool Imu3DM_GX5_25::read_misaligned_msg_from_device(ImuMsg& msg)
     // If to many tries we give up
     if (trial >= max_realign_trials_)
     {
-      if(DEBUG_PRINT_IMU_GX5_25)
+      if(DEBUG_PRINT_IMU_GX3_45)
       {
-        rt_printf("Imu3DM_GX5_25::read_misaligned_msg_from_device(): [Error] "
+        rt_printf("Imu3DM_GX3_45::read_misaligned_msg_from_device(): [Error] "
                   "Realigning failed!\n");
       }
       return false;
     }
     // Print the corrupt message:
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::read_misaligned_msg_from_device(): [Warning] "
+      rt_printf("Imu3DM_GX3_45::read_misaligned_msg_from_device(): [Warning] "
                 "Read invalid message: %s\n",
                 msg.reply_debug_string().c_str());
     }
@@ -179,9 +179,9 @@ bool Imu3DM_GX5_25::read_misaligned_msg_from_device(ImuMsg& msg)
     // No header found
     if (num_missed >= msg.reply_.size())
     {
-      if(DEBUG_PRINT_IMU_GX5_25)
+      if(DEBUG_PRINT_IMU_GX3_45)
       {
-        rt_printf("Imu3DM_GX5_25::read_misaligned_msg_from_device(): [Error] "
+        rt_printf("Imu3DM_GX3_45::read_misaligned_msg_from_device(): [Error] "
                   "Realigning failed!\n");
       }
       return false;
@@ -192,9 +192,9 @@ bool Imu3DM_GX5_25::read_misaligned_msg_from_device(ImuMsg& msg)
     bool stream_on = true; // simple read
     if(usb_stream_.read_device(fragment, stream_on))
     {
-      if(DEBUG_PRINT_IMU_GX5_25)
+      if(DEBUG_PRINT_IMU_GX3_45)
       {
-        rt_printf("Imu3DM_GX5_25::read_misaligned_msg_from_device(): [Error] "
+        rt_printf("Imu3DM_GX3_45::read_misaligned_msg_from_device(): [Error] "
                   "Could not read fragment.\n");
       }
       return false;
@@ -217,21 +217,21 @@ bool Imu3DM_GX5_25::read_misaligned_msg_from_device(ImuMsg& msg)
   return true;
 }
 
-bool Imu3DM_GX5_25::idle_mode()
+bool Imu3DM_GX3_45::idle_mode()
 {
   usb_stream_.flush();
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::idle_mode(): [Status] sending...\n");
+    rt_printf("Imu3DM_GX3_45::idle_mode(): [Status] sending...\n");
   }
 
   // send the configuration to the IMU
   IdleModeMsg msg;
   if (!send_message(msg))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::idle_mode(): [Error] sending message failed\n");
+      rt_printf("Imu3DM_GX3_45::idle_mode(): [Error] sending message failed\n");
     }
     return false;
   }
@@ -240,33 +240,33 @@ bool Imu3DM_GX5_25::idle_mode()
   bool stream_mode = false; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::idle_mode(): [Error] receiving answer failed\n");
+      rt_printf("Imu3DM_GX3_45::idle_mode(): [Error] receiving answer failed\n");
     }
     return false;
   }
 
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::idle_mode(): [Status] sucess with reply: %s\n",
+    rt_printf("Imu3DM_GX3_45::idle_mode(): [Status] sucess with reply: %s\n",
           msg.reply_debug_string().c_str());
   }
   return true;
 }
-bool Imu3DM_GX5_25::imu_data_1kHz(){
-  if(DEBUG_PRINT_IMU_GX5_25)
+bool Imu3DM_GX3_45::imu_data_1kHz(){
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::imu_data_1kHz(): [Status] sending...\n");
+    rt_printf("Imu3DM_GX3_45::imu_data_1kHz(): [Status] sending...\n");
   }
 
   // send the configuration to the IMU
   AccGyrQuat1kHzMsg msg;
   if (!send_message(msg))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::imu_data_1kHz(): [Error] sending message failed\n");
+      rt_printf("Imu3DM_GX3_45::imu_data_1kHz(): [Error] sending message failed\n");
     }
     return false;
   }
@@ -275,35 +275,35 @@ bool Imu3DM_GX5_25::imu_data_1kHz(){
   bool stream_mode = false; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::imu_data_1kHz(): [Error] receiving answer failed\n");
+      rt_printf("Imu3DM_GX3_45::imu_data_1kHz(): [Error] receiving answer failed\n");
     }
     return false;
   }
 
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::imu_data_1kHz(): [Status] sucess with reply: %s\n",
+    rt_printf("Imu3DM_GX3_45::imu_data_1kHz(): [Status] sucess with reply: %s\n",
           msg.reply_debug_string().c_str());
   }
   return true;
 }
 
-bool Imu3DM_GX5_25::estimation_filter_data_500Hz()
+bool Imu3DM_GX3_45::estimation_filter_data_500Hz()
 {
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::estimation_filter_data_500Hz(): [Status] sending...\n");
+    rt_printf("Imu3DM_GX3_45::estimation_filter_data_500Hz(): [Status] sending...\n");
   }
 
   // send the configuration to the IMU
   EFdata500HzMsg msg;
   if (!send_message(msg))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::estimation_filter_data_500Hz(): [Error] sending message failed\n");
+      rt_printf("Imu3DM_GX3_45::estimation_filter_data_500Hz(): [Error] sending message failed\n");
     }
     return false;
   }
@@ -312,35 +312,35 @@ bool Imu3DM_GX5_25::estimation_filter_data_500Hz()
   bool stream_mode = false; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::estimation_filter_data_500Hz(): [Error] receiving answer failed\n");
+      rt_printf("Imu3DM_GX3_45::estimation_filter_data_500Hz(): [Error] receiving answer failed\n");
     }
     return false;
   }
 
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::estimation_filter_data_500Hz(): [Status] sucess with reply: %s\n",
+    rt_printf("Imu3DM_GX3_45::estimation_filter_data_500Hz(): [Status] sucess with reply: %s\n",
           msg.reply_debug_string().c_str());
   }
   return true;
 }
 
-bool Imu3DM_GX5_25::start_streaming_data(void)
+bool Imu3DM_GX3_45::start_streaming_data(void)
 {
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::start_streaming_data(): [Status] sending...\n");
+    rt_printf("Imu3DM_GX3_45::start_streaming_data(): [Status] sending...\n");
   }
 
   // send the configuration to the IMU
   StreamImuEfMsg msg;
   if (!send_message(msg))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::start_streaming_data(): [Error] sending message failed\n");
+      rt_printf("Imu3DM_GX3_45::start_streaming_data(): [Error] sending message failed\n");
     }
     return false;
   }
@@ -349,34 +349,34 @@ bool Imu3DM_GX5_25::start_streaming_data(void)
   bool stream_mode = false; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::start_streaming_data(): [Error] receiving answer failed\n");
+      rt_printf("Imu3DM_GX3_45::start_streaming_data(): [Error] receiving answer failed\n");
     }
     return false;
   }
 
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::start_streaming_data(): [Status] success with reply: %s\n",
+    rt_printf("Imu3DM_GX3_45::start_streaming_data(): [Status] success with reply: %s\n",
           msg.reply_debug_string().c_str());
   }
   return true;
 }
 
-bool Imu3DM_GX5_25::set_heading_at_0(){
-  if(DEBUG_PRINT_IMU_GX5_25)
+bool Imu3DM_GX3_45::set_heading_at_0(){
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::set_heading_at_0(): [Status] sending...\n");
+    rt_printf("Imu3DM_GX3_45::set_heading_at_0(): [Status] sending...\n");
   }
 
   // send the configuration to the IMU
   SetHeading0Msg msg;
   if (!send_message(msg))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::set_heading_at_0(): [Error] sending message failed\n");
+      rt_printf("Imu3DM_GX3_45::set_heading_at_0(): [Error] sending message failed\n");
     }
     return false;
   }
@@ -385,22 +385,22 @@ bool Imu3DM_GX5_25::set_heading_at_0(){
   bool stream_mode = false; // Poll mode
   if (!receive_message(msg, stream_mode))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::set_heading_at_0(): [Error] receiving answer failed\n");
+      rt_printf("Imu3DM_GX3_45::set_heading_at_0(): [Error] receiving answer failed\n");
     }
     return false;
   }
 
-  if(DEBUG_PRINT_IMU_GX5_25)
+  if(DEBUG_PRINT_IMU_GX3_45)
   {
-    rt_printf("Imu3DM_GX5_25::set_heading_at_0(): [Status] success with reply: %s\n",
+    rt_printf("Imu3DM_GX3_45::set_heading_at_0(): [Status] success with reply: %s\n",
           msg.reply_debug_string().c_str());
   }
   return true;
 }
 
-bool Imu3DM_GX5_25::reading_loop(void)
+bool Imu3DM_GX3_45::reading_loop(void)
 {
   real_time_tools::Spinner spinner;
   spinner.set_period(0.002);
@@ -413,7 +413,7 @@ bool Imu3DM_GX5_25::reading_loop(void)
   return true;
 }
 
-bool Imu3DM_GX5_25::stop_reading_loop(void)
+bool Imu3DM_GX3_45::stop_reading_loop(void)
 {
   mutex_.lock();
   stop_imu_communication_ = true;
@@ -422,25 +422,25 @@ bool Imu3DM_GX5_25::stop_reading_loop(void)
   return true;
 }
 
-bool Imu3DM_GX5_25::receive_data(bool)
+bool Imu3DM_GX3_45::receive_data(bool)
 {
   if(!usb_stream_.read_device(imu_data_msg_.reply_, true))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::receive_data(): [Error] message badly received\n");
+      rt_printf("Imu3DM_GX3_45::receive_data(): [Error] message badly received\n");
     }
     return false;
   }
 
   if (!is_checksum_correct(imu_data_msg_))
   {
-    if(DEBUG_PRINT_IMU_GX5_25)
+    if(DEBUG_PRINT_IMU_GX3_45)
     {
-      rt_printf("Imu3DM_GX5_25::receive_message(): [Warning] "
+      rt_printf("Imu3DM_GX3_45::receive_message(): [Warning] "
               "Received message with bad checksum: %s\n",
               imu_data_msg_.reply_debug_string().c_str());
-      rt_printf("Imu3DM_GX5_25::receive_message(): [Status] "
+      rt_printf("Imu3DM_GX3_45::receive_message(): [Status] "
                 "Attempting to re-align with stream...\n");
     }
     if(!read_misaligned_msg_from_device(imu_data_msg_))
@@ -468,5 +468,5 @@ bool Imu3DM_GX5_25::receive_data(bool)
   return true;
 }
 
-} // namespace imu_3DM_GX3_25
+} // namespace imu_3DM_GX3_45
 } // namespace imu_core

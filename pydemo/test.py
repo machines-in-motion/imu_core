@@ -24,7 +24,7 @@ if __name__ == "__main__":
         sys.exit(f"Wrong number of arguments: expected 1, received {len(sys.argv) - 1}: {sys.argv[1:]}")
 
 
-    imu = IMU.Imu3DM_GX5_25(port, True)
+    imu = IMU.Imu3DM_GX3_45(port, True)
 
     imu.initialize()
 
