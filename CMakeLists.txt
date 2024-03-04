@@ -28,7 +28,7 @@ set(all_targets)
 #
 # Create the main library.
 #
-set(SRCS_IMU src/imu_3DM_GX3_25.cpp src/imu_3DM_GX5_25.cpp
+set(SRCS_IMU src/imu_3DM_GX3_45.cpp
              src/imu_interface.cpp)
 add_library(${PROJECT_NAME} SHARED ${SRCS_IMU})
 # Add the include dependencies
@@ -56,9 +56,6 @@ macro(add_imu_core_program source_file)
   # save the name for installation
   set(all_targets ${all_targets} ${source_file})
 endmacro(add_imu_core_program source_file)
-
-add_imu_core_program(reset_3DM_GX3_25)
-
 #
 # Demos
 #
@@ -76,8 +73,7 @@ macro(add_imu_core_demo source_file)
   set(all_targets ${all_targets} ${source_file})
 endmacro(add_imu_core_demo source_file)
 
-add_imu_core_demo(demo_imu_3DM_GX3_25)
-add_imu_core_demo(demo_imu_3DM_GX5_25)
+add_imu_core_demo(demo_imu_3DM_GX3_45)
 
 #
 # building documentation

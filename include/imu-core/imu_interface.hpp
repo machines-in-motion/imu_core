@@ -93,6 +93,15 @@ public:
     return angular_rate_;
   }
   /**
+   * @brief Get the RPY of the imu
+   * 
+   * @return const Eigen::Ref<Eigen::Vector3d> 
+   */
+  const Eigen::Ref<Eigen::Vector4d> get_quaternion()
+  {
+    return quat_;
+  }
+  /**
    * @brief Utilities to swap 16 bits
    * 
    * @param x 
@@ -121,6 +130,10 @@ protected:
    * @brief Measurement of the gyroscope.
    */
   Eigen::Vector3d angular_rate_;
+    /**
+   * @brief Estimation filter data: Roll Pitch Yaw
+   */
+  Eigen::Vector4d quat_;
   /**
    * @brief Name of the linux path, e.g. /dev/ttyACM0
    */

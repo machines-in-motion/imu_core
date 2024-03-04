@@ -3,8 +3,8 @@ imu_core
 
 Realtime and non realtime connection to IMUs.
 This package currently support 2 imus:
-- imu 3DM_GX3_25 from Lord Sensing System.
-- imu 3DM_GX5_25 from Lord Sensing System.
+- imu 3DM_GX3_45 from Lord Sensing System.
+- imu 3DM_GX3_45 from Lord Sensing System.
 
 ### Installation
 
@@ -70,12 +70,12 @@ This assume that your ```devel``` folder is located in your home directory ```~`
 To run the demo plug a valid imu and run:
 ```
 source ~/devel/workspace/install/setup.bash
-demo_imu_3DM_GX3_25
+demo_imu_3DM_GX3_45
 ```
 or
 ```
 source ~/devel/workspace/install/setup.bash
-demo_imu_3DM_GX5_25
+demo_imu_3DM_GX3_45
 ```
 #### Python Demo
 Currently, only the GX3 has a Python demo.
