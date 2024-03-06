@@ -250,7 +250,7 @@ public:
    * 
    * @return double
    */
-  double double_from_byte_array(std::vector<uint8_t> buffer, unsigned start_index)
+  const double double_from_byte_array(std::vector<uint8_t> buffer, unsigned start_index)
   {
     assert(buffer.size() > start_index + 3 && "Imu3DM_GX3_45::double_from_byte_array The buffer is too small");
     union double_int {

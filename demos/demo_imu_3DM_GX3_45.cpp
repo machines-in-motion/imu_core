@@ -46,7 +46,7 @@ int main(int argc, char** argv){
   {
     Eigen::Vector3d acc = imu.get_acceleration();
     Eigen::Vector3d ang_rate = imu.get_angular_rate();
-    Eigen::Vector4d quat = imu.get_quaternion();
+    Eigen::Vector4d quat = imu.get_quaternion_xyzw();
 
 
     std::cout << "acc = [";

@@ -47,7 +47,8 @@ PYBIND11_MODULE(imu_core_cpp, m){
     .def("initialize", &ImuInterface::initialize)
     .def("get_acceleration", &ImuInterface::get_acceleration)
     .def("get_angular_rate", &ImuInterface::get_angular_rate)
-    .def("get_quaternion", &ImuInterface::get_quaternion)
+    .def("get_quaternion_xyzw", &ImuInterface::get_quaternion_xyzw)
+    .def("get_quaternion_wxyz", &ImuInterface::get_quaternion_wxyz)
     .def_static("bswap_16", &ImuInterface::bswap_16, "x"_a)
     .def_static("bswap_32", &ImuInterface::bswap_32, "x"_a);
 

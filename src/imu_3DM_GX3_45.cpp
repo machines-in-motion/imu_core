@@ -459,10 +459,15 @@ bool Imu3DM_GX3_45::receive_data(bool)
   angular_rate_[1] = double_from_byte_array(imu_data_msg_.reply_, index_gyro_y);
   angular_rate_[2] = double_from_byte_array(imu_data_msg_.reply_, index_gyro_z);
   
-  quat_[0] = double_from_byte_array(imu_data_msg_.reply_, index_q0);
-  quat_[1] = double_from_byte_array(imu_data_msg_.reply_, index_q1);
-  quat_[2] = double_from_byte_array(imu_data_msg_.reply_, index_q2);
-  quat_[3] = double_from_byte_array(imu_data_msg_.reply_, index_q3);
+  quat_xyzw_[0] = double_from_byte_array(imu_data_msg_.reply_, index_q0); // vec x
+  quat_xyzw_[1] = double_from_byte_array(imu_data_msg_.reply_, index_q1); // vec y
+  quat_xyzw_[2] = double_from_byte_array(imu_data_msg_.reply_, index_q2); // vec z
+  quat_xyzw_[3] = double_from_byte_array(imu_data_msg_.reply_, index_q3); // scalar
+
+  quat_wxyz_[0] = double_from_byte_array(imu_data_msg_.reply_, index_q3); // scalar
+  quat_wxyz_[1] = double_from_byte_array(imu_data_msg_.reply_, index_q0); // vec x
+  quat_wxyz_[2] = double_from_byte_array(imu_data_msg_.reply_, index_q1); // vec y
+  quat_wxyz_[3] = double_from_byte_array(imu_data_msg_.reply_, index_q2); // vec z
 
   mutex_.unlock();
   return true;

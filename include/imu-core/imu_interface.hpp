@@ -93,13 +93,22 @@ public:
     return angular_rate_;
   }
   /**
-   * @brief Get the RPY of the imu
+   * @brief Get the quaterion of the imu in the [vector x, vector y, vector z, scalar] convention
    * 
    * @return const Eigen::Ref<Eigen::Vector3d> 
    */
-  const Eigen::Ref<Eigen::Vector4d> get_quaternion()
+  const Eigen::Ref<const Eigen::Vector4d> get_quaternion_xyzw() const
   {
-    return quat_;
+    return quat_xyzw_;
+  }
+  /**
+   * @brief Get the quaterion of the imu in the [ scalar, vector x, vector y, vector z] convention
+   * 
+   * @return const Eigen::Ref<Eigen::Vector3d> 
+   */
+  const Eigen::Ref<const Eigen::Vector4d> get_quaternion_wxyz() const
+  {
+    return quat_wxyz_;
   }
   /**
    * @brief Utilities to swap 16 bits
@@ -130,10 +139,14 @@ protected:
    * @brief Measurement of the gyroscope.
    */
   Eigen::Vector3d angular_rate_;
-    /**
-   * @brief Estimation filter data: Roll Pitch Yaw
+  /**
+   * @brief quuaterion in the [x,y,z,w] convention
    */
-  Eigen::Vector4d quat_;
+  Eigen::Vector4d quat_xyzw_;
+  /**
+   * @brief quuaterion in the [w,x,y,z] convention
+   */
+  Eigen::Vector4d quat_wxyz_;
   /**
    * @brief Name of the linux path, e.g. /dev/ttyACM0
    */
